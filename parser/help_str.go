@@ -151,7 +151,7 @@ func GetArrWord(l []*word) [][]*word {
 }
 
 // 对原始字符串分词
-func getWords(source string) []*word {
+func GetWords(source string) []*word {
 	status := scannerStatus_NewLine
 	work := ""
 	lastIsSpe := false
@@ -296,10 +296,4 @@ func getWords(source string) []*word {
 	}
 
 	return list
-}
-
-// 把go结构的tag格式化成数组 source = `inject:"" json:"orm"`
-func getArrGoTag(source string) []string {
-	// tagStr := source[1:len(source)-1]
-	return nil
 }

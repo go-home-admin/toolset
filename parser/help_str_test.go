@@ -63,7 +63,7 @@ func Test_getWords(t *testing.T) {
 	testStr := "protobuf:\"bytes,1,opt,name=area,proto3\" form:\"area\" json:\"area,omitempty\"" +
 		"\n" +
 		"inject:\"\" json:\"orm\""
-	got := getWords(testStr)
+	got := GetWords(testStr)
 
 	if 19 != len(got) {
 		t.Error("应该是(19)")

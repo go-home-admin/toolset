@@ -7,11 +7,11 @@ import (
 
 // @Bean fdsaf
 type con struct {
-	orm   orm   `inject:"" json:"orm"`
-	orm2  *orm  `inject:""`
-	orm3  []orm `inject:""`
-	proto int   `protobuf:"bytes,1,opt,name=area,proto3" form:"area" json:"area,omitempty"`
-	orm4  func(i int, f map[string]string)
+	orm  orm   `inject:"" json:"orm"`
+	orm2 *orm  `inject:""`
+	orm3 []orm `inject:""`
+	area int   `protobuf:"bytes,1,opt,name=area,proto3" form:"area" json:"area,omitempty"`
+	orm4 func(i int, f map[string]string)
 }
 
 // test api
