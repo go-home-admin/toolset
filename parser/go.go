@@ -37,7 +37,7 @@ func parserGoFile(info FileInfo) (string, error) {
 		Funds:       make(map[string]string),
 	}
 
-	l := words(info.path)
+	l := getWordsWitchFile(info.path)
 	for offset := 0; offset < len(l.list); offset++ {
 		fmt.Println(offset)
 		work := l.list[offset]
@@ -173,6 +173,7 @@ func getArrGoWord(l []*word) [][]string {
 
 	return got
 }
+
 func handleTypes(l []*word, offset int) (GoType, int) {
 	newOffset := offset
 	nl := l[offset:]
@@ -194,8 +195,8 @@ func handleTypes(l []*word, offset int) (GoType, int) {
 		arrLn := getArrGoWord(nl)
 		for _, wordAttrs := range arrLn {
 			// 获取属性信息
-			// TODO 当前仅支持有注解的
-			if len(wordAttrs) == 3 && strings.Index(wordAttrs[2], "`") != 0 {
+			// TODO 当前仅支持有tag的
+			if len(wordAttrs) == 3 && strings.Index(wordAttrs[2], "`") == 0 {
 				attr := GoTypeAttr{
 					Name:       wordAttrs[0],
 					TypeName:   wordAttrs[1],
@@ -204,6 +205,9 @@ func handleTypes(l []*word, offset int) (GoType, int) {
 					Tag:        map[string]string{},
 				}
 				// 解析 go tag
+				tagStr := wordAttrs[2][1 : len(wordAttrs[2])-1]
+
+				fmt.Println(tagStr)
 
 				got.Attrs[attr.Name] = attr
 			}

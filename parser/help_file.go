@@ -79,7 +79,7 @@ const (
 )
 
 // 对文件内容进行c系语言分词
-func words(path string) GoWords {
+func getWordsWitchFile(path string) GoWords {
 	var got = GoWords{
 		list: make([]*word, 0),
 	}

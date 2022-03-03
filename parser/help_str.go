@@ -149,3 +149,157 @@ func GetArrWord(l []*word) [][]*word {
 	}
 	return got
 }
+
+// 对原始字符串分词
+func getWords(source string) []*word {
+	status := scannerStatus_NewLine
+	work := ""
+	lastIsSpe := false
+	list := make([]*word, 0)
+	for _, s := range source {
+		str := string(s)
+		stop := false
+		switch status {
+		case scannerStatus_Doc:
+			work = work + str
+			stop = true
+		case scannerStatus_Doc2:
+			work = work + str
+			stop = true
+			// 检查是否*/结束了
+			if str == "/" && HasSuffix(work, "*/") {
+				list = append(list, &word{
+					str: work,
+					t:   wordT_doc,
+				})
+				// 分割后从新开始
+				work = ""
+				status = scannerStatus_NewWork
+			}
+		case scannerStatus_DocWait:
+			switch str {
+			case "/":
+				work = work + str
+				status = scannerStatus_Doc
+				stop = true
+			case "*":
+				work = work + str
+				status = scannerStatus_Doc2
+				stop = true
+			default:
+				// 没有进入文档模式, 那么上一个就是分割符号
+				list = append(list, &word{
+					str: work,
+					t:   wordT_division,
+				})
+				// 分割后从新开始
+				work = ""
+				status = scannerStatus_NewWork
+			}
+		case scannerStatus_quote:
+			work = work + str
+			stop = true
+			if str == "\"" && !HasSuffix(work, "\\\"") {
+				list = append(list, &word{
+					str: work,
+					t:   wordT_word,
+				})
+				// 分割后从新开始
+				work = ""
+				status = scannerStatus_NewWork
+			}
+		case scannerStatus_quote2:
+			work = work + str
+			stop = true
+			if str == "'" {
+				list = append(list, &word{
+					str: work,
+					t:   wordT_word,
+				})
+				// 分割后从新开始
+				work = ""
+				status = scannerStatus_NewWork
+			}
+		case scannerStatus_quote3:
+			work = work + str
+			stop = true
+			if str == "`" {
+				list = append(list, &word{
+					str: work,
+					t:   wordT_word,
+				})
+				// 分割后从新开始
+				work = ""
+				status = scannerStatus_NewWork
+			}
+		case scannerStatus_NewLine, scannerStatus_NewWork:
+			switch str {
+			case "/":
+				work = work + str
+				status = scannerStatus_DocWait
+				stop = true
+			case "\"":
+				work = work + str
+				status = scannerStatus_quote
+				stop = true
+			case "'":
+				work = work + str
+				status = scannerStatus_quote2
+				stop = true
+			case "`":
+				work = work + str
+				status = scannerStatus_quote3
+				stop = true
+			}
+		}
+		if !stop {
+			if IsIdentifier(s) {
+				// 标识符: 字母, 数字, _
+				work = work + str
+				status = scannerStatus_Work
+				lastIsSpe = false
+			} else if InArrString(str, []string{" ", "\t"}) {
+				// 合并多余的空格
+				if !lastIsSpe {
+					if len(work) != 0 {
+						list = append(list, &word{
+							str: work,
+							t:   wordT_word,
+						})
+					}
+					list = append(list, &word{
+						str: str,
+						t:   wordT_division,
+					})
+					work = ""
+					status = scannerStatus_NewWork
+					lastIsSpe = true
+				}
+			} else {
+				if len(work) != 0 {
+					list = append(list, &word{
+						str: work,
+						t:   wordT_word,
+					})
+				}
+				list = append(list, &word{
+					str: str,
+					t:   wordT_division,
+				})
+				work = ""
+				status = scannerStatus_NewWork
+				lastIsSpe = false
+			}
+		} else {
+			lastIsSpe = false
+		}
+	}
+
+	return list
+}
+
+// 把go结构的tag格式化成数组 source = `inject:"" json:"orm"`
+func getArrGoTag(source string) []string {
+	// tagStr := source[1:len(source)-1]
+	return nil
+}
