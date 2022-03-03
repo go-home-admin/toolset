@@ -1,16 +1,18 @@
 package parser
 
 import (
-	"bufio"
 	"fmt"
-	"os"
+	"strings"
 )
 
+/**
+golang parser 非完整token实现
+*/
 type DirParser struct {
 	PackageName string
 	Imports     map[string]string
-	Types       map[string]string
-	Funcs       map[string]string
+	Types       map[string]GoType
+	Funds       map[string]string
 }
 
 func NewGoParser(path string) DirParser {
@@ -28,183 +30,214 @@ func loadGoFiles(path string) []FileInfo {
 }
 
 func parserGoFile(info FileInfo) (string, error) {
+	d := DirParser{
+		PackageName: "",
+		Imports:     make(map[string]string),
+		Types:       make(map[string]GoType),
+		Funds:       make(map[string]string),
+	}
+
 	l := words(info.path)
-	for _, i := range l.list {
-		fmt.Print(i.str)
+	for offset := 0; offset < len(l.list); offset++ {
+		fmt.Println(offset)
+		work := l.list[offset]
+		// 原则上, 每个块级别的作用域必须自己处理完, 返回的偏移必须是下一个块的开始
+		switch work.t {
+		case wordT_line:
+		case wordT_division:
+		case wordT_doc:
+		case wordT_word:
+			switch work.str {
+			case "package":
+				d.PackageName, offset = handlePackageName(l.list, offset)
+			case "import":
+				var imap map[string]string
+				imap, offset = handleImports(l.list, offset)
+				for k, v := range imap {
+					d.Imports[k] = v
+				}
+			case "type":
+				var imap GoType
+				imap, offset = handleTypes(l.list, offset)
+				d.Types[imap.Name] = imap
+			case "func":
+				var imap map[string]string
+				imap, offset = handleFunds(l.list, offset)
+				for k, v := range imap {
+					d.Imports[k] = v
+				}
+			case "const":
+				_, offset = handleCosts(l.list, offset)
+			case "var":
+				_, offset = handleVars(l.list, offset)
+			default:
+
+			}
+		}
 	}
 
 	return "", nil
 }
 
-// 分词后的结构
-type word struct {
-	str string
-	t   wordT
-}
-type GoWords struct {
-	list []*word
-}
-type wordT int
-
-const (
-	// 单词
-	wordT_word wordT = 0
-	// 分隔符
-	wordT_division wordT = 1
-	// 换行符
-	wordT_line wordT = 2
-	wordT_doc  wordT = 3
-)
-
-// 分词过程状态
-type scannerStatus int
-
-const (
-	// 新的一行
-	scannerStatus_NewLine scannerStatus = 0
-	// 准备注释中
-	scannerStatus_DocWait scannerStatus = 1
-	// 注释中, 单行, 多行
-	scannerStatus_Doc  scannerStatus = 2
-	scannerStatus_Doc2 scannerStatus = 3
-	// 遇到间隔符号
-	scannerStatus_NewWork scannerStatus = 4
-	// 单词中
-	scannerStatus_Work scannerStatus = 5
-)
-
-func words(path string) GoWords {
-	var got = GoWords{
-		list: make([]*word, 0),
+func handlePackageName(l []*word, offset int) (string, int) {
+	newOffset := offset
+	name := ""
+	for i, w := range l[offset:] {
+		if w.t == wordT_line {
+			name = l[i-1].str
+			newOffset = i
+			break
+		}
 	}
-	file, err := os.Open(path)
-	if err != nil {
-		panic(err)
-		return got
-	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
 
-	status := scannerStatus_NewLine
-	work := ""
-	lastIsSpe := false
-	for scanner.Scan() {
-		for _, s := range scanner.Text() {
-			str := string(s)
-			stop := false
-			switch status {
-			case scannerStatus_Doc:
-				work = work + str
-				stop = true
-			case scannerStatus_Doc2:
-				work = work + str
-				stop = true
-				// 检查是否*/结束了
-				if str == "/" && HasSuffix(work, "*/") {
-					got.list = append(got.list, &word{
-						str: work,
-						t:   wordT_doc,
-					})
-					// 分割后从新开始
-					work = ""
-					status = scannerStatus_NewWork
+	return name, newOffset
+}
+
+func handleImports(l []*word, offset int) (map[string]string, int) {
+	newOffset := offset
+	imap := make(map[string]string)
+	var key, val string
+	start := 0
+
+gofer:
+	for i, w := range l[offset+1:] {
+		switch w.t {
+		case wordT_line:
+			newOffset = i + offset + 1
+			switch start {
+			case 0:
+				break
+			case 1:
+				if l[newOffset+1].str == ")" {
+					i = newOffset + 1
+					break gofer
 				}
-			case scannerStatus_DocWait:
-				switch str {
-				case "/":
-					work = work + str
-					status = scannerStatus_Doc
-					stop = true
-				case "*":
-					work = work + str
-					status = scannerStatus_Doc2
-					stop = true
-				default:
-					// 没有进入文档模式, 那么上一个就是分割符号
-					got.list = append(got.list, &word{
-						str: work,
-						t:   wordT_division,
-					})
-					// 分割后从新开始
-					work = ""
-					status = scannerStatus_NewWork
-				}
-			case scannerStatus_NewLine, scannerStatus_NewWork:
-				if str == "/" {
-					work = work + str
-					status = scannerStatus_DocWait
-					stop = true
-				}
+				key, val = "", ""
 			}
-			if !stop {
-				if IsIdentifier(s) {
-					// 标识符: 字母, 数字, _
-					work = work + str
-					status = scannerStatus_Work
-					lastIsSpe = false
-				} else if InArrString(str, []string{" ", "\t"}) {
-					// 合并多余的空格
-					if !lastIsSpe {
-						got.list = append(got.list, &word{
-							str: work,
-							t:   wordT_division,
-						}, &word{
-							str: str,
-							t:   wordT_division,
-						})
-						work = ""
-						status = scannerStatus_NewWork
-						lastIsSpe = true
-					}
-				} else {
-					got.list = append(got.list, &word{
-						str: work,
-						t:   wordT_word,
-					}, &word{
-						str: str,
-						t:   wordT_division,
-					})
-					work = ""
-					status = scannerStatus_NewWork
-					lastIsSpe = false
+		case wordT_word:
+			if w.str[0:1] == "\"" {
+				val = w.str[1 : len(w.str)-1]
+
+				if key == "" {
+					temp := strings.Split(val, "/")
+					key = temp[len(temp)-1]
 				}
+				imap[key] = val
 			} else {
-				lastIsSpe = false
+				key = w.str
+			}
+		case wordT_division:
+			if w.str == "(" {
+				start = 1
 			}
 		}
-		switch status {
-		case scannerStatus_Work:
-			got.list = append(got.list, &word{
-				str: work,
-				t:   wordT_word,
-			}, &word{
-				str: "\n",
-				t:   wordT_line,
-			})
-			status = scannerStatus_NewLine
-			work = ""
-		case scannerStatus_Doc:
-			got.list = append(got.list, &word{
-				str: work,
-				t:   wordT_doc,
-			}, &word{
-				str: "\n",
-				t:   wordT_line,
-			})
-			status = scannerStatus_NewLine
-			work = ""
-		case scannerStatus_Doc2:
-			// 多行注释未结束
-			work = work + "\n"
-		default:
-			got.list = append(got.list, &word{
-				str: "\n",
-				t:   wordT_line,
-			})
-			status = scannerStatus_NewLine
-			work = ""
+	}
+
+	return imap, newOffset + 1
+}
+
+type GoType struct {
+	Doc   string
+	Name  string
+	Attrs map[string]GoTypeAttr
+}
+type GoTypeAttr struct {
+	Name       string
+	TypeName   string
+	TypeAlias  string
+	TypeImport string
+	Tag        map[string]string
+}
+
+// 普通指针
+func (receiver GoTypeAttr) IsPointer() bool {
+	return receiver.TypeName[0:1] == "*"
+}
+
+// 组装成数组, 只限name type other\n结构
+func getArrGoWord(l []*word) [][]string {
+	got := make([][]string, 0)
+	arr := GetArrWord(l)
+	for _, i := range arr {
+		lis := i[len(i)-1].str
+		if lis[0:1] == "`" && len(i) >= 3 {
+			ty := ""
+			for in := 1; in < len(i)-1; in++ {
+				if i[in].t != wordT_doc {
+					ty = ty + i[in].str
+				}
+			}
+			got = append(got, []string{i[0].str, ty, lis})
 		}
 	}
 
 	return got
+}
+func handleTypes(l []*word, offset int) (GoType, int) {
+	newOffset := offset
+	nl := l[offset:]
+	got := GoType{
+		Doc:   "",
+		Name:  "",
+		Attrs: map[string]GoTypeAttr{},
+	}
+	ok, off := GetLastIsIdentifier(nl, "{")
+
+	if ok {
+		// 新结构
+		var i int
+		got.Name, i = GetFistWordBehindStr(nl, "type")
+		nl = nl[i+1:]
+		st, et := GetBrackets(nl, "{", "}")
+		newOffset = offset + off + i + st + 1
+		nl := nl[st+1 : et]
+		arrLn := getArrGoWord(nl)
+		for _, wordAttrs := range arrLn {
+			// 获取属性信息
+			// TODO 当前仅支持有注解的
+			if len(wordAttrs) == 3 && strings.Index(wordAttrs[2], "`") != 0 {
+				attr := GoTypeAttr{
+					Name:       wordAttrs[0],
+					TypeName:   wordAttrs[1],
+					TypeAlias:  "",
+					TypeImport: "",
+					Tag:        map[string]string{},
+				}
+				// 解析 go tag
+
+				got.Attrs[attr.Name] = attr
+			}
+		}
+	} else {
+		// struct 别名
+		// TODO 目前不需要支持
+		newOffset = off + offset
+	}
+
+	return got, newOffset
+}
+func handleFunds(l []*word, offset int) (map[string]string, int) {
+	ok, off := GetLastIsIdentifier(l[offset:], "(")
+	if ok {
+		return nil, off + offset
+	}
+	_, et := GetBrackets(l[offset:], "(", ")")
+	return nil, offset + et
+}
+func handleCosts(l []*word, offset int) (map[string]string, int) {
+	ok, off := GetLastIsIdentifier(l[offset:], "(")
+	if ok {
+		return nil, off + offset
+	}
+	_, et := GetBrackets(l[offset:], "(", ")")
+	return nil, offset + et
+}
+
+func handleVars(l []*word, offset int) (map[string]string, int) {
+	ok, off := GetLastIsIdentifier(l[offset:], "(")
+	if ok {
+		return nil, off + offset
+	}
+	_, et := GetBrackets(l[offset:], "(", ")")
+	return nil, offset + et
 }
