@@ -13,30 +13,30 @@ type GoFileParser struct {
 	PackageDoc  string
 	Imports     map[string]string
 	Types       map[string]GoType
-	Funds       map[string]string
+	Funds       map[string]GoFunc
 }
 
-func NewGoParser(path string) GoFileParser {
-	var gof GoFileParser
+func NewGoParserForDir(path string) []GoFileParser {
+	var got []GoFileParser
 	for _, file := range loadGoFiles(path) {
-		gof, _ = parserGoFile(file)
-		fmt.Println(gof)
+		gof, _ := GetFileParser(file)
+		got = append(got, gof)
 	}
 
-	return gof
+	return got
 }
 
 func loadGoFiles(path string) []FileInfo {
 	return loadFiles(path, ".go")
 }
 
-func parserGoFile(info FileInfo) (GoFileParser, error) {
+func GetFileParser(info FileInfo) (GoFileParser, error) {
 	d := GoFileParser{
 		PackageName: "",
 		PackageDoc:  "",
 		Imports:     make(map[string]string),
 		Types:       make(map[string]GoType),
-		Funds:       make(map[string]string),
+		Funds:       make(map[string]GoFunc),
 	}
 
 	l := getWordsWitchFile(info.path)
@@ -66,11 +66,9 @@ func parserGoFile(info FileInfo) (GoFileParser, error) {
 				imap.Doc = lastDoc
 				d.Types[imap.Name] = imap
 			case "func":
-				var imap map[string]string
-				imap, offset = handleFunds(l.list, offset)
-				for k, v := range imap {
-					d.Imports[k] = v
-				}
+				var gf GoFunc
+				gf, offset = handleFunds(l.list, offset)
+				d.Funds[gf.Name] = gf
 			case "const":
 				_, offset = handleCosts(l.list, offset)
 			case "var":
@@ -247,32 +245,38 @@ func handleTypes(l []*word, offset int) (GoType, int) {
 
 	return got, newOffset
 }
-func handleFunds(l []*word, offset int) (map[string]string, int) {
+
+type GoFunc struct {
+	Name string
+	Stu  string
+}
+
+func handleFunds(l []*word, offset int) (GoFunc, int) {
 	ft := 0
 	for _, w := range l[offset+1:] {
-		if w.t != wordT_doc {
-			if w.t == wordT_division {
-				// 结构函数
-				ft = 1
-				break
-			} else {
-				// 普通函数
-				break
-			}
+		if w.t == wordT_division && w.str == "(" {
+			ft = 1
+			break
+		} else if w.t == wordT_word {
+			break
 		}
 	}
 	if ft == 0 {
 		// 普通函数
-		_, et := GetBrackets(l[offset:], "(", ")")
-		_, et = GetBrackets(l[offset+et:], "{", "}")
-		return nil, offset + et
+		name, i := GetFistWordBehindStr(l[offset:], "func")
+
+		_, et := GetBrackets(l[offset+i:], "(", ")")
+		_, et = GetBrackets(l[offset+et+i:], "{", "}")
+		return GoFunc{Name: name}, offset + et + i
 	} else {
+		// 结构函数
 		_, et := GetBrackets(l[offset:], "(", ")")
 		offset = offset + et
+		name, _ := GetFistWord(l[offset:])
 		_, et = GetBrackets(l[offset:], "(", ")")
 		offset = offset + et
 		_, et = GetBrackets(l[offset:], "{", "}")
-		return nil, offset + et
+		return GoFunc{Name: name}, offset + et
 	}
 }
 func handleCosts(l []*word, offset int) (map[string]string, int) {

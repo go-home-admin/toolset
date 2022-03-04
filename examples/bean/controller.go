@@ -25,3 +25,7 @@ func (c con) api() {
 
 //
 type testInt int
+
+func test() {
+
+}
