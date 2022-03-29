@@ -16,7 +16,7 @@ type BeanCommand struct{}
 func (BeanCommand) Configure() command.Configure {
 	return command.Configure{
 		Name:        "make:bean",
-		Description: "生成依赖注入的声明源代码文件",
+		Description: "生成依赖注入的声明源代码文件, 使用@Bean注解, 和inject引入",
 		Input: command.Argument{
 			Has: []command.ArgParam{
 				{
@@ -25,6 +25,11 @@ func (BeanCommand) Configure() command.Configure {
 				},
 			},
 			Option: []command.ArgParam{
+				{
+					Name:        "scan",
+					Description: "扫码目录下的源码",
+					Default:     "@root",
+				},
 				{
 					Name:        "skip",
 					Description: "跳过目录",
@@ -37,20 +42,16 @@ func (BeanCommand) Configure() command.Configure {
 
 func (BeanCommand) Execute(input command.Input) {
 	root := getRootPath()
-
-	//if input.GetHas("-f") == true {
-	//	for alias, _ := range parser.NewGoParserForDir(path) {
-	//		if
-	//	}
-	//}
+	scan := input.GetOption("scan")
+	scan = strings.Replace(scan, "@root", root, 1)
 
 	skip := make(map[string]bool)
-	for _, s := range input.GetOptions("proto_path") {
+	for _, s := range input.GetOptions("skip") {
 		s = strings.Replace(s, "@root", root, 1)
 		skip[s] = true
 	}
 
-	for dir, fileParsers := range parser.NewGoParserForDir(root) {
+	for dir, fileParsers := range parser.NewGoParserForDir(scan) {
 		if _, ok := skip[dir]; ok {
 			break
 		}
