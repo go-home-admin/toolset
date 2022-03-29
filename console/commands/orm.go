@@ -25,6 +25,11 @@ func (OrmCommand) Configure() command.Configure {
 					Description: "配置文件",
 					Default:     "@root/config/database.yaml",
 				},
+				{
+					Name:        "out",
+					Description: "输出文件",
+					Default:     "@root/app/entity",
+				},
 			},
 		},
 	}
@@ -34,6 +39,8 @@ func (OrmCommand) Execute(input command.Input) {
 	root := getRootPath()
 	file := input.GetOption("config")
 	file = strings.Replace(file, "@root", root, 1)
+	outBase := input.GetOption("out")
+	outBase = strings.Replace(outBase, "@root", root, 1)
 
 	err := godotenv.Load(root + "/.env")
 	if err != nil {
@@ -51,7 +58,7 @@ func (OrmCommand) Execute(input command.Input) {
 	for s, confT := range connections {
 		conf := confT.(map[interface{}]interface{})
 		driver := conf["driver"]
-		out := root + "/app/entity/" + s.(string)
+		out := outBase + "/" + s.(string)
 		switch driver {
 		case "mysql":
 			orm.GenMysql(s.(string), conf, out)
