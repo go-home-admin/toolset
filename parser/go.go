@@ -217,7 +217,8 @@ func (d GoDoc) HasAnnotation(check string) bool {
 }
 
 func (d GoDoc) GetAlias() string {
-	l := GetWords(string(d)[2:])
+	ns := strings.ReplaceAll(string(d), "//", " ")
+	l := GetWords(ns)
 	num := 0
 	for i, w := range l {
 		if w.Ty == wordT_word {
