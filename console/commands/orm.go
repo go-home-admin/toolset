@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/ctfang/command"
 	"github.com/go-home-admin/toolset/console/commands/orm"
 	"github.com/joho/godotenv"
@@ -44,7 +45,7 @@ func (OrmCommand) Execute(input command.Input) {
 
 	err := godotenv.Load(root + "/.env")
 	if err != nil {
-		panic(err)
+		fmt.Println(root + "/.env" + "文件不存在, 无法加载环境变量")
 	}
 	fileContext, _ := os.ReadFile(file)
 	fileContext = SetEnv(fileContext)
