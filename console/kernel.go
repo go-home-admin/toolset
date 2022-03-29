@@ -1,0 +1,39 @@
+package console
+
+import (
+	"github.com/ctfang/command"
+	"github.com/go-home-admin/toolset/console/commands"
+	"os"
+	"path/filepath"
+)
+
+// @Bean
+type Kernel struct{}
+
+func (k *Kernel) Run() {
+	app := command.New()
+	app.AddBaseOption(command.ArgParam{
+		Name:        "root",
+		Description: "获取项目跟路径",
+		Call: func(val string, c *command.Console) (string, bool) {
+			if val == "" {
+				val, _ = os.Getwd()
+			}
+
+			val, _ = filepath.Abs(val)
+			commands.SetRootPath(val)
+			return val, true
+		},
+	})
+
+	for _, provider := range commands.GetAllProvider() {
+		if v, ok := provider.(command.Command); ok {
+			app.AddCommand(v)
+		}
+	}
+	app.Run()
+}
+
+func (k *Kernel) Exit() {
+
+}

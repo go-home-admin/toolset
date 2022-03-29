@@ -1,7 +1,9 @@
 package main
 
-import "github.com/go-home-admin/toolset/parser"
+import (
+	"github.com/go-home-admin/toolset/console"
+)
 
 func main() {
-	parser.NewGoParserForDir("./examples/bean")
+	console.NewKernel().Run()
 }

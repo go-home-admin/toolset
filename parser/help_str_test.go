@@ -15,7 +15,7 @@ func TestGetBrackets(t *testing.T) {
 		{" ", wordT_division},
 		{"TestGetBrackets", wordT_word},
 		{"(", wordT_word},
-		{"t", wordT_word},
+		{"Ty", wordT_word},
 		{" ", wordT_division},
 		{")", wordT_division},
 		{" ", wordT_division},
@@ -28,7 +28,12 @@ func TestGetBrackets(t *testing.T) {
 	}
 
 	start, end := GetBrackets(l, "{", "}")
-	fmt.Println(start, end)
+	if l[start].Str != "{" {
+		t.Error("{解析失败")
+	}
+	if l[end].Str != "}" {
+		t.Error("}解析失败")
+	}
 }
 
 func TestLastIsIdentifier(t *testing.T) {
@@ -37,7 +42,7 @@ func TestLastIsIdentifier(t *testing.T) {
 		{" ", wordT_division},
 		{"TestGetBrackets", wordT_word},
 		{"(", wordT_division},
-		{"t", wordT_word},
+		{"Ty", wordT_word},
 		{" ", wordT_division},
 		{")", wordT_division},
 		{"(", wordT_division},

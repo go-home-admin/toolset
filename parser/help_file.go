@@ -6,15 +6,74 @@ import (
 	"io/ioutil"
 	"os"
 	path2 "path"
+	"path/filepath"
 )
+
+func DirIsExist(f string) bool {
+	_, err := os.Stat(f)
+	return err == nil || os.IsExist(err)
+}
 
 type FileInfo struct {
 	fs.FileInfo
-	path string
+	Path string
 }
 
-// 读取目录中的所有文件包括子目录的文件
-func loadFiles(path string, ext string) []FileInfo {
+type DirInfo struct {
+	Name string
+	Path string
+}
+
+// GetFiles 获取目录下所有文件
+func (di DirInfo) GetFiles(ext string) []FileInfo {
+	got := make([]FileInfo, 0)
+
+	files, err := ioutil.ReadDir(di.Path)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, file := range files {
+		if path2.Ext(file.Name()) == ext {
+			got = append(got, FileInfo{
+				FileInfo: file,
+				Path:     di.Path + "/" + file.Name(),
+			})
+		}
+	}
+
+	return got
+}
+
+// GetChildrenDir 获取目录和所有子目录
+func GetChildrenDir(path string) []DirInfo {
+	got := []DirInfo{
+		{
+			Name: filepath.Base(path),
+			Path: path,
+		},
+	}
+
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() && file.Name()[0:1] != "." {
+			got = append(got, DirInfo{
+				Name: file.Name(),
+				Path: path + "/" + file.Name(),
+			})
+			got = append(got, GetChildrenDir(path+"/"+file.Name())...)
+		}
+	}
+
+	return got
+}
+
+// GetDirFiles 读取目录中的所有文件包括子目录的文件
+func GetDirFiles(path string, ext string) []FileInfo {
 	got := make([]FileInfo, 0)
 
 	files, err := ioutil.ReadDir(path)
@@ -24,12 +83,12 @@ func loadFiles(path string, ext string) []FileInfo {
 
 	for _, file := range files {
 		if file.IsDir() {
-			t := loadFiles(path+"/"+file.Name(), ext)
+			t := GetDirFiles(path+"/"+file.Name(), ext)
 			got = append(got, t...)
 		} else if path2.Ext(file.Name()) == ext {
 			got = append(got, FileInfo{
 				FileInfo: file,
-				path:     path + "/" + file.Name(),
+				Path:     path + "/" + file.Name(),
 			})
 		}
 	}
@@ -39,8 +98,8 @@ func loadFiles(path string, ext string) []FileInfo {
 
 // 分词后的结构
 type word struct {
-	str string
-	t   wordT
+	Str string
+	Ty  wordT
 }
 type GoWords struct {
 	list []*word
@@ -108,8 +167,8 @@ func getWordsWitchFile(path string) GoWords {
 				// 检查是否*/结束了
 				if str == "/" && HasSuffix(work, "*/") {
 					got.list = append(got.list, &word{
-						str: work,
-						t:   wordT_doc,
+						Str: work,
+						Ty:  wordT_doc,
 					})
 					// 分割后从新开始
 					work = ""
@@ -128,8 +187,8 @@ func getWordsWitchFile(path string) GoWords {
 				default:
 					// 没有进入文档模式, 那么上一个就是分割符号
 					got.list = append(got.list, &word{
-						str: work,
-						t:   wordT_division,
+						Str: work,
+						Ty:  wordT_division,
 					})
 					// 分割后从新开始
 					work = ""
@@ -140,8 +199,8 @@ func getWordsWitchFile(path string) GoWords {
 				stop = true
 				if str == "\"" && !HasSuffix(work, "\\\"") {
 					got.list = append(got.list, &word{
-						str: work,
-						t:   wordT_word,
+						Str: work,
+						Ty:  wordT_word,
 					})
 					// 分割后从新开始
 					work = ""
@@ -152,8 +211,8 @@ func getWordsWitchFile(path string) GoWords {
 				stop = true
 				if str == "'" {
 					got.list = append(got.list, &word{
-						str: work,
-						t:   wordT_word,
+						Str: work,
+						Ty:  wordT_word,
 					})
 					// 分割后从新开始
 					work = ""
@@ -164,8 +223,8 @@ func getWordsWitchFile(path string) GoWords {
 				stop = true
 				if str == "`" {
 					got.list = append(got.list, &word{
-						str: work,
-						t:   wordT_word,
+						Str: work,
+						Ty:  wordT_word,
 					})
 					// 分割后从新开始
 					work = ""
@@ -202,13 +261,13 @@ func getWordsWitchFile(path string) GoWords {
 					if !lastIsSpe {
 						if len(work) != 0 {
 							got.list = append(got.list, &word{
-								str: work,
-								t:   wordT_word,
+								Str: work,
+								Ty:  wordT_word,
 							})
 						}
 						got.list = append(got.list, &word{
-							str: str,
-							t:   wordT_division,
+							Str: str,
+							Ty:  wordT_division,
 						})
 						work = ""
 						status = scannerStatus_NewWork
@@ -217,13 +276,13 @@ func getWordsWitchFile(path string) GoWords {
 				} else {
 					if len(work) != 0 {
 						got.list = append(got.list, &word{
-							str: work,
-							t:   wordT_word,
+							Str: work,
+							Ty:  wordT_word,
 						})
 					}
 					got.list = append(got.list, &word{
-						str: str,
-						t:   wordT_division,
+						Str: str,
+						Ty:  wordT_division,
 					})
 					work = ""
 					status = scannerStatus_NewWork
@@ -236,21 +295,21 @@ func getWordsWitchFile(path string) GoWords {
 		switch status {
 		case scannerStatus_Work:
 			got.list = append(got.list, &word{
-				str: work,
-				t:   wordT_word,
+				Str: work,
+				Ty:  wordT_word,
 			}, &word{
-				str: "\n",
-				t:   wordT_line,
+				Str: "\n",
+				Ty:  wordT_line,
 			})
 			status = scannerStatus_NewLine
 			work = ""
 		case scannerStatus_Doc:
 			got.list = append(got.list, &word{
-				str: work,
-				t:   wordT_doc,
+				Str: work,
+				Ty:  wordT_doc,
 			}, &word{
-				str: "\n",
-				t:   wordT_line,
+				Str: "\n",
+				Ty:  wordT_line,
 			})
 			status = scannerStatus_NewLine
 			work = ""
@@ -258,10 +317,10 @@ func getWordsWitchFile(path string) GoWords {
 			// 多行注释未结束
 			work = work + "\n"
 		default:
-			if got.list[len(got.list)-1].t != wordT_line {
+			if len(got.list) != 0 && got.list[len(got.list)-1].Ty != wordT_line {
 				got.list = append(got.list, &word{
-					str: "\n",
-					t:   wordT_line,
+					Str: "\n",
+					Ty:  wordT_line,
 				})
 			}
 			status = scannerStatus_NewLine

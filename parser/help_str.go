@@ -1,6 +1,9 @@
 package parser
 
 import (
+	"sort"
+	"strconv"
+	"strings"
 	"unicode"
 )
 
@@ -42,14 +45,12 @@ func GetLastIsIdentifier(l []*word, start string) (bool, int) {
 	i := 0
 	var w *word
 	for i, w = range l {
-		if w.t == wordT_line {
+		if w.Ty == wordT_line {
 			return ok, i
-		} else if w.str == start {
+		} else if w.Str == start {
 			ok = true
-		} else if !ok || !(w.t == wordT_doc || InArrString(w.str, []string{" ", "\t", "\n"})) {
-			if ok {
-				return false, i
-			}
+		} else if ok && !(w.Ty == wordT_doc || InArrString(w.Str, []string{" ", "\t"})) {
+			ok = false
 		}
 	}
 
@@ -59,21 +60,54 @@ func GetLastIsIdentifier(l []*word, start string) (bool, int) {
 // 获取第一个单词
 func GetFistWord(l []*word) (string, int) {
 	for i, w := range l {
-		if w.t == wordT_word {
-			return w.str, i
+		if w.Ty == wordT_word {
+			return w.Str, i
 		}
 	}
 	return "", len(l)
+}
+
+// 获取第n个单词
+func GetWord(l []*word, n int) (string, int) {
+	for i, w := range l {
+		if w.Ty == wordT_word {
+			n--
+			if n <= 0 {
+				return w.Str, i
+			}
+		}
+	}
+	return "", len(l)
+}
+
+// 获取第一个字符(不包括空格, 换行符, 制表)
+func GetFistStr(l []*word) (string, int) {
+	for i, w := range l {
+		if !InArrString(w.Str, []string{" ", "\n", "\t"}) {
+			return w.Str, i
+		}
+	}
+	return "", len(l)
+}
+
+// 获取下一行开始
+func NextLine(l []*word) int {
+	for i, w := range l {
+		if w.Ty == wordT_line {
+			return i
+		}
+	}
+	return len(l)
 }
 
 // 获取某字符串后第一个单词
 func GetFistWordBehindStr(l []*word, behind string) (string, int) {
 	init := false
 	for i, w := range l {
-		if w.t == wordT_word {
+		if w.Ty == wordT_word {
 			if init {
-				return w.str, i
-			} else if w.str == behind {
+				return w.Str, i
+			} else if w.Str == behind {
 				init = true
 			}
 		}
@@ -84,9 +118,9 @@ func GetFistWordBehindStr(l []*word, behind string) (string, int) {
 // 括号引用起来的块, 或者第一行没有块就换行
 func GetBracketsOrLn(l []*word, start, end string) (int, int, bool) {
 	for i, w := range l {
-		if w.t == wordT_line {
+		if w.Ty == wordT_line {
 			return 0, i, false
-		} else if w.t == wordT_division && w.str == start {
+		} else if w.Ty == wordT_division && w.Str == start {
 			startInt, endInt := GetBrackets(l, start, end)
 			return startInt, endInt, true
 		}
@@ -96,27 +130,28 @@ func GetBracketsOrLn(l []*word, start, end string) (int, int, bool) {
 }
 
 // 括号引用起来的块, 词性必须是分隔符
+// 返回是开始偏移和结束偏移
 func GetBrackets(l []*word, start, end string) (int, int) {
 	var startInt, endInt int
 
 	bCount := 0
 	for i, w := range l {
 		if bCount == 0 {
-			if w.t == wordT_division && w.str == start {
+			if w.Ty == wordT_division && w.Str == start {
 				startInt = i
 				bCount++
 			}
 		} else {
-			if w.t == wordT_division {
-				switch w.str {
+			if w.Ty == wordT_division {
+				switch w.Str {
+				case start:
+					bCount++
 				case end:
 					bCount--
 					if bCount <= 0 {
 						endInt = i
 						return startInt, endInt
 					}
-				case start:
-					bCount++
 				}
 			}
 		}
@@ -130,11 +165,11 @@ func GetArrWord(l []*word) [][]*word {
 	got := make([][]*word, 0)
 	sl := make([]*word, 0)
 	for _, w := range l {
-		switch w.t {
+		switch w.Ty {
 		case wordT_word:
 			sl = append(sl, w)
 		case wordT_division:
-			if !InArrString(w.str, []string{" ", "\t"}) {
+			if !InArrString(w.Str, []string{" ", "\t"}) {
 				sl = append(sl, w)
 			}
 		case wordT_line:
@@ -169,8 +204,8 @@ func GetWords(source string) []*word {
 			// 检查是否*/结束了
 			if str == "/" && HasSuffix(work, "*/") {
 				list = append(list, &word{
-					str: work,
-					t:   wordT_doc,
+					Str: work,
+					Ty:  wordT_doc,
 				})
 				// 分割后从新开始
 				work = ""
@@ -189,8 +224,8 @@ func GetWords(source string) []*word {
 			default:
 				// 没有进入文档模式, 那么上一个就是分割符号
 				list = append(list, &word{
-					str: work,
-					t:   wordT_division,
+					Str: work,
+					Ty:  wordT_division,
 				})
 				// 分割后从新开始
 				work = ""
@@ -201,8 +236,8 @@ func GetWords(source string) []*word {
 			stop = true
 			if str == "\"" && !HasSuffix(work, "\\\"") {
 				list = append(list, &word{
-					str: work,
-					t:   wordT_word,
+					Str: work,
+					Ty:  wordT_word,
 				})
 				// 分割后从新开始
 				work = ""
@@ -213,8 +248,8 @@ func GetWords(source string) []*word {
 			stop = true
 			if str == "'" {
 				list = append(list, &word{
-					str: work,
-					t:   wordT_word,
+					Str: work,
+					Ty:  wordT_word,
 				})
 				// 分割后从新开始
 				work = ""
@@ -225,8 +260,8 @@ func GetWords(source string) []*word {
 			stop = true
 			if str == "`" {
 				list = append(list, &word{
-					str: work,
-					t:   wordT_word,
+					Str: work,
+					Ty:  wordT_word,
 				})
 				// 分割后从新开始
 				work = ""
@@ -263,13 +298,13 @@ func GetWords(source string) []*word {
 				if !lastIsSpe {
 					if len(work) != 0 {
 						list = append(list, &word{
-							str: work,
-							t:   wordT_word,
+							Str: work,
+							Ty:  wordT_word,
 						})
 					}
 					list = append(list, &word{
-						str: str,
-						t:   wordT_division,
+						Str: str,
+						Ty:  wordT_division,
 					})
 					work = ""
 					status = scannerStatus_NewWork
@@ -278,13 +313,13 @@ func GetWords(source string) []*word {
 			} else {
 				if len(work) != 0 {
 					list = append(list, &word{
-						str: work,
-						t:   wordT_word,
+						Str: work,
+						Ty:  wordT_word,
 					})
 				}
 				list = append(list, &word{
-					str: str,
-					t:   wordT_division,
+					Str: str,
+					Ty:  wordT_division,
 				})
 				work = ""
 				status = scannerStatus_NewWork
@@ -295,5 +330,103 @@ func GetWords(source string) []*word {
 		}
 	}
 
+	if status == scannerStatus_Work && len(work) != 0 {
+		list = append(list, &word{
+			Str: work,
+			Ty:  wordT_word,
+		})
+	}
+
 	return list
+}
+
+// 驼峰转蛇形
+func StringToSnake(s string) string {
+	s = strings.ReplaceAll(s, "-", "_")
+	data := make([]byte, 0, len(s)*2)
+	j := false
+	num := len(s)
+	for i := 0; i < num; i++ {
+		d := s[i]
+		if i > 0 && d >= 'A' && d <= 'Z' && j {
+			data = append(data, '_')
+		}
+		if d != '_' {
+			j = true
+		}
+		data = append(data, d)
+	}
+	return strings.ToLower(string(data[:]))
+}
+
+// 蛇形转驼峰
+func StringToHump(s string) string {
+	data := make([]byte, 0, len(s))
+	j := false
+	k := false
+	num := len(s) - 1
+	for i := 0; i <= num; i++ {
+		d := s[i]
+		if k == false && d >= 'A' && d <= 'Z' {
+			k = true
+		}
+		if d >= 'a' && d <= 'z' && (j || k == false) {
+			d = d - 32
+			j = false
+			k = true
+		}
+		if k && (d == '_' || d == '-') && num > i && s[i+1] >= 'a' && s[i+1] <= 'z' {
+			j = true
+			continue
+		}
+		data = append(data, d)
+	}
+	return string(data[:])
+}
+
+// SortMap 排序map
+func SortMap(m map[string]string) []string {
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// GetImportStrForMap 生成import
+func GetImportStrForMap(m map[string]string) string {
+	sk := SortMap(m)
+	got := ""
+	for _, k := range sk {
+		got += "\n\t" + m[k] + " \"" + k + "\""
+	}
+
+	return got
+}
+
+// GenImportAlias 生成 import => alias
+func GenImportAlias(m map[string]string) map[string]string {
+	aliasMapImport := make(map[string]string)
+	importMapAlias := make(map[string]string)
+	for _, imp := range m {
+		temp := strings.Split(imp, "/")
+		key := temp[len(temp)-1]
+
+		if _, ok := aliasMapImport[key]; ok {
+			for i := 1; i < 1000; i++ {
+				newKey := key + strconv.Itoa(i)
+				if _, ok2 := aliasMapImport[newKey]; !ok2 {
+					key = newKey
+					break
+				}
+			}
+		}
+		aliasMapImport[key] = imp
+	}
+	for s, s2 := range aliasMapImport {
+		importMapAlias[s2] = s
+	}
+
+	return importMapAlias
 }

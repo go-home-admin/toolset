@@ -5,9 +5,7 @@ import (
 	"strings"
 )
 
-/**
-golang parser 非完整token实现
-*/
+// GoFileParser 非完整token实现
 type GoFileParser struct {
 	PackageName string
 	PackageDoc  string
@@ -16,21 +14,51 @@ type GoFileParser struct {
 	Funds       map[string]GoFunc
 }
 
-func NewGoParserForDir(path string) []GoFileParser {
-	var got []GoFileParser
-	for _, file := range loadGoFiles(path) {
-		gof, _ := GetFileParser(file)
-		got = append(got, gof)
+func NewGoParserForDir(path string) map[string][]GoFileParser {
+	got := make(map[string][]GoFileParser)
+	for _, dir := range GetChildrenDir(path) {
+		arr := make([]GoFileParser, 0)
+		for _, file := range dir.GetFiles(".go") {
+			gof, _ := GetFileParser(file.Path)
+			arr = append(arr, gof)
+		}
+		got[dir.Path] = arr
 	}
 
 	return got
 }
 
-func loadGoFiles(path string) []FileInfo {
-	return loadFiles(path, ".go")
+// go 关键字语法块
+// map\[]\interface{}
+func getWordsWitchGo(l *GoWords) GoWords {
+	var got = GoWords{
+		list: make([]*word, 0),
+	}
+
+	for offset := 0; offset < len(l.list); offset++ {
+		work := l.list[offset]
+		switch work.Ty {
+		case wordT_word:
+			switch work.Str {
+			case "interface":
+				if len(l.list) >= (offset+2) && l.list[offset+1].Str == "{" && l.list[offset+2].Str == "}" {
+					offset = offset + 2
+					work.Str = work.Str + "{}"
+					got.list = append(got.list, work)
+				} else {
+					got.list = append(got.list, work)
+				}
+			default:
+				got.list = append(got.list, work)
+			}
+		default:
+			got.list = append(got.list, work)
+		}
+	}
+	return got
 }
 
-func GetFileParser(info FileInfo) (GoFileParser, error) {
+func GetFileParser(path string) (GoFileParser, error) {
 	d := GoFileParser{
 		PackageName: "",
 		PackageDoc:  "",
@@ -39,42 +67,55 @@ func GetFileParser(info FileInfo) (GoFileParser, error) {
 		Funds:       make(map[string]GoFunc),
 	}
 
-	l := getWordsWitchFile(info.path)
+	l := getWordsWitchFile(path)
+	l = getWordsWitchGo(&l)
 	lastDoc := ""
 	for offset := 0; offset < len(l.list); offset++ {
 		work := l.list[offset]
 		// 原则上, 每个块级别的作用域必须自己处理完, 返回的偏移必须是下一个块的开始
-		switch work.t {
+		switch work.Ty {
 		case wordT_line:
+			lastDoc += work.Str
 		case wordT_division:
 		case wordT_doc:
-			lastDoc = work.str
+			lastDoc += work.Str
 		case wordT_word:
-			switch work.str {
+			switch work.Str {
 			case "package":
 				d.PackageDoc = lastDoc
 				d.PackageName, offset = handlePackageName(l.list, offset)
+				lastDoc = ""
 			case "import":
 				var imap map[string]string
 				imap, offset = handleImports(l.list, offset)
 				for k, v := range imap {
 					d.Imports[k] = v
 				}
+				lastDoc = ""
 			case "type":
 				var imap GoType
-				imap, offset = handleTypes(l.list, offset)
-				imap.Doc = lastDoc
+				imap, offset = handleTypes(l.list, offset, d)
+				imap.Doc = GoDoc(lastDoc)
 				d.Types[imap.Name] = imap
+				lastDoc = ""
 			case "func":
 				var gf GoFunc
 				gf, offset = handleFunds(l.list, offset)
 				d.Funds[gf.Name] = gf
+				lastDoc = ""
 			case "const":
 				_, offset = handleCosts(l.list, offset)
+				lastDoc = ""
 			case "var":
 				_, offset = handleVars(l.list, offset)
+				lastDoc = ""
 			default:
-				fmt.Println("文件块作用域似乎解析有错误", info.path, work.str, offset)
+				nl := l.list[offset:]
+				str := ""
+				for _, w := range nl {
+					str += w.Str
+				}
+				fmt.Println("文件块作用域似乎解析有错误", path, offset, str)
 			}
 		}
 	}
@@ -83,64 +124,65 @@ func GetFileParser(info FileInfo) (GoFileParser, error) {
 }
 
 func handlePackageName(l []*word, offset int) (string, int) {
-	newOffset := offset
-	name := ""
-	for i, w := range l[offset:] {
-		if w.t == wordT_line {
-			name = l[i-1].str
-			newOffset = i
-			break
-		}
+	name, i := GetFistWordBehindStr(l[offset:], "package")
+	return name, offset + i
+}
+
+func getImport(sl []string) (string, string) {
+	if len(sl) == 2 {
+		return sl[0], sl[1][1 : len(sl[1])-1]
 	}
 
-	return name, newOffset
+	str := sl[0][1 : len(sl[0])-1]
+	temp := strings.Split(str, "/")
+	key := temp[len(temp)-1]
+	return key, str
 }
 
 func handleImports(l []*word, offset int) (map[string]string, int) {
 	newOffset := offset
 	imap := make(map[string]string)
 	var key, val string
-	start := 0
 
-gofer:
-	for i, w := range l[offset+1:] {
-		switch w.t {
-		case wordT_line:
-			newOffset = i + offset + 1
-			switch start {
-			case 0:
-				break
-			case 1:
-				if l[newOffset+1].str == ")" {
-					i = newOffset + 1
-					break gofer
-				}
-				key, val = "", ""
-			}
-		case wordT_word:
-			if w.str[0:1] == "\"" {
-				val = w.str[1 : len(w.str)-1]
-
-				if key == "" {
-					temp := strings.Split(val, "/")
-					key = temp[len(temp)-1]
-				}
+	ft, fti := GetFistStr(l[offset+1:])
+	if ft != "(" {
+		arr := make([]string, 0)
+		for i, w := range l[offset+fti:] {
+			if wordT_line == w.Ty {
+				newOffset = offset + fti + i
+				key, val = getImport(arr)
 				imap[key] = val
-			} else {
-				key = w.str
+				return imap, newOffset
 			}
-		case wordT_division:
-			if w.str == "(" {
-				start = 1
+
+			if w.Ty == wordT_word {
+				arr = append(arr, w.Str)
+			}
+		}
+	} else {
+		st, et := GetBrackets(l[offset+1:], "(", ")")
+		st = st + offset + 1
+		et = et + offset + 1
+		newOffset = et
+
+		arr := make([]string, 0)
+		for _, w := range l[st : et+1] {
+			if wordT_line == w.Ty && len(arr) != 0 {
+				key, val = getImport(arr)
+				imap[key] = val
+				arr = make([]string, 0)
+			}
+
+			if w.Ty == wordT_word {
+				arr = append(arr, w.Str)
 			}
 		}
 	}
-
-	return imap, newOffset + 1
+	return imap, newOffset
 }
 
 type GoType struct {
-	Doc   string
+	Doc   GoDoc
 	Name  string
 	Attrs map[string]GoTypeAttr
 }
@@ -149,12 +191,60 @@ type GoTypeAttr struct {
 	TypeName   string
 	TypeAlias  string
 	TypeImport string
-	Tag        map[string]string
+	InPackage  bool // 是否本包的引用
+	Tag        map[string]TagDoc
 }
 
-// 普通指针
+type TagDoc string
+
+func (t TagDoc) Get(num int) string {
+	s := string(t)
+	sr := strings.Split(s, ",")
+	return strings.Trim(sr[num], " ")
+}
+
+func (t TagDoc) Count() int {
+	s := string(t)
+	sr := strings.Split(s, ",")
+	return len(sr)
+}
+
+type GoDoc string
+
+// HasAnnotation 是否存在某个注解
+func (d GoDoc) HasAnnotation(check string) bool {
+	return strings.Index(string(d), check) != -1
+}
+
+func (d GoDoc) GetAlias() string {
+	l := GetWords(string(d)[2:])
+	num := 0
+	for i, w := range l {
+		if w.Ty == wordT_word {
+			if w.Str == "Bean" {
+				if l[i-1].Str == "@" {
+					num = 1
+				}
+			} else if num == 1 {
+				return w.Str[1 : len(w.Str)-1]
+			}
+		}
+	}
+	return ""
+}
+
+// IsPointer 普通指针
 func (receiver GoTypeAttr) IsPointer() bool {
 	return receiver.TypeName[0:1] == "*"
+}
+
+func (receiver GoTypeAttr) HasTag(name string) bool {
+	for s := range receiver.Tag {
+		if s == name {
+			return true
+		}
+	}
+	return false
 }
 
 // 组装成数组, 只限name type other\n结构
@@ -162,15 +252,15 @@ func getArrGoWord(l []*word) [][]string {
 	got := make([][]string, 0)
 	arr := GetArrWord(l)
 	for _, i := range arr {
-		lis := i[len(i)-1].str
+		lis := i[len(i)-1].Str
 		if lis[0:1] == "`" && len(i) >= 3 {
 			ty := ""
 			for in := 1; in < len(i)-1; in++ {
-				if i[in].t != wordT_doc {
-					ty = ty + i[in].str
+				if i[in].Ty != wordT_doc {
+					ty = ty + i[in].Str
 				}
 			}
-			got = append(got, []string{i[0].str, ty, lis})
+			got = append(got, []string{i[0].Str, ty, lis})
 		}
 	}
 
@@ -186,8 +276,8 @@ func getArrGoTag(source string) [][]string {
 	got := make([][]string, 0)
 	arr := make([]string, 0)
 	for _, w := range wl {
-		if w.t == wordT_word {
-			arr = append(arr, w.str)
+		if w.Ty == wordT_word {
+			arr = append(arr, w.Str)
 			i++
 			if i >= 2 {
 				i = 0
@@ -199,7 +289,7 @@ func getArrGoTag(source string) [][]string {
 
 	return got
 }
-func handleTypes(l []*word, offset int) (GoType, int) {
+func handleTypes(l []*word, offset int, d GoFileParser) (GoType, int) {
 	newOffset := offset
 	nl := l[offset:]
 	got := GoType{
@@ -222,17 +312,17 @@ func handleTypes(l []*word, offset int) (GoType, int) {
 			// TODO 当前仅支持有tag的
 			if len(wordAttrs) == 3 && strings.Index(wordAttrs[2], "`") == 0 {
 				attr := GoTypeAttr{
-					Name:       wordAttrs[0],
-					TypeName:   wordAttrs[1],
-					TypeAlias:  "",
-					TypeImport: "",
-					Tag:        map[string]string{},
+					Name:     wordAttrs[0],
+					TypeName: wordAttrs[1],
+					Tag:      map[string]TagDoc{},
 				}
+				getTypeAlias(wordAttrs[1], d, &attr)
 				// 解析 go tag
 				tagArr := getArrGoTag(wordAttrs[2])
 
 				for _, tagStrArr := range tagArr {
-					attr.Tag[tagStrArr[0]] = tagStrArr[1]
+					td := tagStrArr[1]
+					attr.Tag[tagStrArr[0]] = TagDoc(td[1 : len(td)-1])
 				}
 				got.Attrs[attr.Name] = attr
 			}
@@ -246,53 +336,94 @@ func handleTypes(l []*word, offset int) (GoType, int) {
 	return got, newOffset
 }
 
+// 根据属性声明类型或者类型的引入名称
+func getTypeAlias(str string, d GoFileParser, attr *GoTypeAttr) {
+	wArr := GetWords(str)
+	wf := wArr[0]
+
+	if wf.Ty == wordT_word || wf.Str == "*" {
+		if (wf.Str == "*" && len(wArr) >= 3) || (wf.Str != "*" && len(wArr) >= 2) {
+			attr.TypeAlias, _ = GetFistWord(wArr)
+			attr.TypeImport = d.Imports[attr.TypeAlias]
+			return
+		}
+	}
+	// 本包
+	attr.TypeAlias = d.PackageName
+	attr.TypeImport = "" // TODO
+	attr.InPackage = true
+}
+
 type GoFunc struct {
 	Name string
 	Stu  string
 }
 
 func handleFunds(l []*word, offset int) (GoFunc, int) {
-	ft := 0
-	for _, w := range l[offset+1:] {
-		if w.t == wordT_division && w.str == "(" {
-			ft = 1
-			break
-		} else if w.t == wordT_word {
-			break
-		}
-	}
-	if ft == 0 {
+	ft, _ := GetFistStr(l[offset+1:])
+	name := ""
+	if ft != "(" {
 		// 普通函数
-		name, i := GetFistWordBehindStr(l[offset:], "func")
-
-		_, et := GetBrackets(l[offset+i:], "(", ")")
-		_, et = GetBrackets(l[offset+et+i:], "{", "}")
-		return GoFunc{Name: name}, offset + et + i
+		var i int
+		name, i = GetFistWordBehindStr(l[offset:], "func")
+		offset = offset + i
+		_, et := GetBrackets(l[offset:], "(", ")")
+		offset = offset + et
 	} else {
 		// 结构函数
 		_, et := GetBrackets(l[offset:], "(", ")")
 		offset = offset + et
-		name, _ := GetFistWord(l[offset:])
+		name, _ = GetFistWord(l[offset:])
 		_, et = GetBrackets(l[offset:], "(", ")")
 		offset = offset + et
-		_, et = GetBrackets(l[offset:], "{", "}")
-		return GoFunc{Name: name}, offset + et
 	}
+	// 排除返回值的interface{}
+	st, et := GetBrackets(l[offset:], "{", "}")
+	interCount := 0
+	for _, w := range l[offset : offset+st] {
+		if w.Str == "interface" {
+			interCount++
+		}
+	}
+	if interCount != 0 {
+		for i := 0; i <= interCount; i++ {
+			_, et := GetBrackets(l[offset:], "{", "}")
+			offset = offset + et
+		}
+	} else {
+		offset = offset + et
+	}
+	return GoFunc{Name: name}, offset
 }
 func handleCosts(l []*word, offset int) (map[string]string, int) {
-	ok, off := GetLastIsIdentifier(l[offset:], "(")
-	if ok {
-		return nil, off + offset
-	}
-	_, et := GetBrackets(l[offset:], "(", ")")
-	return nil, offset + et
+	return handleVars(l, offset)
 }
 
 func handleVars(l []*word, offset int) (map[string]string, int) {
-	ok, off := GetLastIsIdentifier(l[offset:], "(")
-	if ok {
-		return nil, off + offset
+	ft, _ := GetFistStr(l[offset+1:])
+	if ft != "(" {
+		ok, _ := GetLastIsIdentifier(l[offset:], "{")
+		if ok {
+			last := NextLine(l[offset:])
+			ss := l[offset+last-1]
+			if ss.Str == "{" {
+				nl := l[offset+last-1:]
+				offset = offset + last - 1
+				_, et := GetBrackets(nl, "{", "}")
+				return nil, offset + et + 1
+			} else {
+				nl := l[offset:]
+				_, et := GetBrackets(nl, "{", "}")
+				return nil, offset + et + 1
+			}
+		} else {
+			last := NextLine(l[offset:])
+			offset = offset + last
+			return nil, offset
+		}
+	} else {
+		nl := l[offset:]
+		_, et := GetBrackets(nl, "(", ")")
+		return nil, offset + et + 1
 	}
-	_, et := GetBrackets(l[offset:], "(", ")")
-	return nil, offset + et
 }
