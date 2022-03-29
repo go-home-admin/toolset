@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 )
 
-// @Bean
+// Kernel @Bean
 type Kernel struct{}
 
 func (k *Kernel) Run() {
 	app := command.New()
 	app.AddBaseOption(command.ArgParam{
 		Name:        "root",
-		Description: "获取项目跟路径",
+		Description: "获取项目跟路径, 默认当前目录",
 		Call: func(val string, c *command.Console) (string, bool) {
 			if val == "" {
 				val, _ = os.Getwd()

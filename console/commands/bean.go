@@ -28,7 +28,7 @@ func (BeanCommand) Configure() command.Configure {
 				{
 					Name:        "scan",
 					Description: "扫码目录下的源码",
-					Default:     "@root",
+					Default:     "shell(pwd)",
 				},
 				{
 					Name:        "skip",
