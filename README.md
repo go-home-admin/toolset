@@ -34,7 +34,7 @@ connections:
 ````shell
 user@macOs path $ toolset make:orm -config=./config/database.yaml -out=your_path
 ````
-使用, 基本上和php laravel 很类似
+使用, 基本上和`php` `laravel` 很类似, 如果不使用整套的`home`代码, 应该在生成目录下编写新的`NewOrmUsers`函数
 ````go
 orm := NewOrmUsers()
 user, has := orm.WhereId(1).First()
