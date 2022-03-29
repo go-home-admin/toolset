@@ -1,6 +1,6 @@
 module github.com/go-home-admin/toolset
 
-go 1.17
+go 1.16
 
 require (
 	github.com/ctfang/command v1.0.0
