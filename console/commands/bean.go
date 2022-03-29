@@ -27,8 +27,8 @@ func (BeanCommand) Configure() command.Configure {
 			Option: []command.ArgParam{
 				{
 					Name:        "scan",
-					Description: "扫码目录下的源码",
-					Default:     "shell(pwd)",
+					Description: "扫码目录下的源码; shell(pwd)",
+					Default:     "@root",
 				},
 				{
 					Name:        "skip",
