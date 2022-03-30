@@ -51,7 +51,7 @@ func (ProtocCommand) Configure() command.Configure {
 var show = false
 
 func (ProtocCommand) Execute(input command.Input) {
-	show = input.GetOption("false") == "true"
+	show = input.GetOption("show") != "false"
 	root := getRootPath()
 	_, err := exec.LookPath("protoc")
 	if err != nil {
@@ -61,6 +61,7 @@ func (ProtocCommand) Execute(input command.Input) {
 	out := input.GetOption("go_out")
 	out = strings.Replace(out, "@root", root, 1)
 	outTemp, _ := filepath.Abs(out + "/../temp")
+	_ = os.RemoveAll(outTemp)
 	_ = os.MkdirAll(outTemp, 0766)
 
 	path := input.GetOption("proto")
