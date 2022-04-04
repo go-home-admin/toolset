@@ -6,6 +6,7 @@ import (
 )
 
 var _BeanCommandSingle *BeanCommand
+var _DevCommandSingle *DevCommand
 var _OrmCommandSingle *OrmCommand
 var _ProtocCommandSingle *ProtocCommand
 var _RouteCommandSingle *RouteCommand
@@ -13,6 +14,7 @@ var _RouteCommandSingle *RouteCommand
 func GetAllProvider() []interface{} {
 	return []interface{}{
 		NewBeanCommand(),
+		NewDevCommand(),
 		NewOrmCommand(),
 		NewProtocCommand(),
 		NewRouteCommand(),
@@ -25,6 +27,13 @@ func NewBeanCommand() *BeanCommand {
 		app.AfterProvider(_BeanCommandSingle, "")
 	}
 	return _BeanCommandSingle
+}
+func NewDevCommand() *DevCommand {
+	if _DevCommandSingle == nil {
+		_DevCommandSingle = &DevCommand{}
+		app.AfterProvider(_DevCommandSingle, "")
+	}
+	return _DevCommandSingle
 }
 func NewOrmCommand() *OrmCommand {
 	if _OrmCommandSingle == nil {
