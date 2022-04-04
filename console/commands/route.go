@@ -112,15 +112,17 @@ func genController(server parser.Service, out string) {
 		_ = os.MkdirAll(out, 0760)
 	}
 
-	conStr := `package {package}
+	if !parser.DirIsExist(out + "/controller.go") {
+		conStr := `package {package}
 
 // Controller @Bean
 type Controller struct {
 }`
-	conStr = strings.ReplaceAll(conStr, "{package}", parser.StringToSnake(server.Name))
-	err := os.WriteFile(out+"/controller.go", []byte(conStr), 0760)
-	if err != nil {
-		panic(err)
+		conStr = strings.ReplaceAll(conStr, "{package}", parser.StringToSnake(server.Name))
+		err := os.WriteFile(out+"/controller.go", []byte(conStr), 0760)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	methodStr := `package {package}
@@ -161,6 +163,12 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 	for rName, rpc := range server.Rpc {
 		for _, option := range rpc.Opt {
 			if strings.Index(option.Key, "http.") == 0 {
+				actionName := parser.StringToHump(rName)
+				actionFile := out + "/" + parser.StringToSnake(actionName) + "_action.go"
+				if parser.DirIsExist(actionFile) {
+					continue
+				}
+
 				serPage := goMod + "/generate/proto/" + server.Protoc.PackageName
 				imports[serPage] = serPage
 				importsStr := ""
@@ -173,7 +181,6 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 				controllerAlias := m[serPage]
 
 				str := methodStr
-				actionName := parser.StringToHump(rName)
 
 				i := strings.Index(option.Key, ".")
 				method := option.Key[i+1:]
@@ -194,7 +201,7 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 					str = strings.ReplaceAll(str, s, O)
 				}
 
-				err = os.WriteFile(out+"/"+parser.StringToSnake(actionName)+"_action.go", []byte(str), 0766)
+				err := os.WriteFile(out+"/"+parser.StringToSnake(actionName)+"_action.go", []byte(str), 0766)
 				if err != nil {
 					log.Fatal(err)
 				}
