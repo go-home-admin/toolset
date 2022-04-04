@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bufio"
+	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -56,6 +57,7 @@ func GetChildrenDir(path string) []DirInfo {
 
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
+		fmt.Println("无法打开的目录: " + path)
 		panic(err)
 	}
 
