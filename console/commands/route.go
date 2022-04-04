@@ -93,6 +93,9 @@ func (RouteCommand) Execute(input command.Input) {
 		}
 	}
 
+	os.RemoveAll(out)
+	os.MkdirAll(out, 0765)
+
 	for _, g := range agl {
 		genRoute(g, out)
 	}
@@ -230,7 +233,7 @@ func genRoute(g *ApiGroups, out string) {
 	}
 	err := os.WriteFile(out+"/"+parser.StringToSnake(g.name)+"_gen.go", []byte(str), 0766)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("无法写入目录文件", err)
 	}
 }
 
