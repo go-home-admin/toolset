@@ -169,7 +169,7 @@ func genProvider(bc beanCache, m map[string]string) string {
 				"\n\t\t" + constraint + ".AfterProvider(" + sVar + ", \"" + goType.Doc.GetAlias() + "\")" +
 				"\n\t}" +
 				"\n\treturn " + sVar +
-				"\n}\n"
+				"\n}"
 		}
 	}
 
