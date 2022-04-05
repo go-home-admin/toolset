@@ -53,7 +53,7 @@ func (BeanCommand) Execute(input command.Input) {
 
 	for dir, fileParsers := range parser.NewGoParserForDir(scan) {
 		if _, ok := skip[dir]; ok {
-			break
+			continue
 		}
 
 		bc := newBeanCache()
