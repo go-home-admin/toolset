@@ -117,7 +117,7 @@ func genBean(dir string, bc beanCache) {
 		str = str + "\n" + s2
 	}
 
-	err := os.WriteFile(dir+"/z_inject_gen.go", []byte(str), 0766)
+	err := os.WriteFile(dir+"/z_inject_gen.go", []byte(str+"\n"), 0766)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func genProvider(bc beanCache, m map[string]string) string {
 					pointer = "*"
 				}
 
-				for tagName, _ := range attr.Tag {
+				for tagName := range attr.Tag {
 					if tagName == "inject" {
 						str = str + "\n\t\t" +
 							sVar + "." + attrName + " = " + pointer + getInitializeNewFunName(attr, m)
