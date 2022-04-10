@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/ctfang/command"
-	"log"
+	"os"
 	"os/exec"
 )
 
@@ -24,16 +24,16 @@ func (DevCommand) Execute(input command.Input) {
 	runOtherCommand("toolset", "make:route", "-root="+root)
 	runOtherCommand("toolset", "make:orm", "-root="+root)
 	runOtherCommand("toolset", "make:bean", "-root="+root)
+	runOtherCommand("go", "run", root+"/main.go")
 }
 
 func runOtherCommand(name string, arg ...string) {
 	cmd := exec.Command(name, arg...)
-	out, err := cmd.CombinedOutput()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
 	if err != nil {
-		fmt.Printf("combined out:\n%s\n", string(out))
-		log.Fatalf("cmd.Run() failed with %s\n", err)
-	}
-	if len(out) > 0 {
-		fmt.Printf("\n%s\n", string(out))
+		fmt.Println("cmd.Output: ", err)
+		return
 	}
 }
