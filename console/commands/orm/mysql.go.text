@@ -130,10 +130,10 @@ func (orm *OrmMysqlTableName) Count() int64 {
 }
 
 // First 检索单个对象
-func (orm *OrmMysqlTableName) First(conds ...interface{}) (*MysqlTableName, int64) {
+func (orm *OrmMysqlTableName) First(conds ...interface{}) (*MysqlTableName, bool) {
 	dest := &MysqlTableName{}
 	db := orm.db.Limit(1).Find(dest, conds...)
-	return dest, db.RowsAffected
+	return dest, db.RowsAffected == 1
 }
 
 // Take return a record that match given conditions, the order will depend on the database implementation
