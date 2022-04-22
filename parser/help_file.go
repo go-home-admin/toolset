@@ -199,7 +199,7 @@ func getWordsWitchFile(path string) GoWords {
 			case scannerStatus_quote:
 				work = work + str
 				stop = true
-				if str == "\"" && !HasSuffix(work, "\\\"") {
+				if str == "\"" && (!HasSuffix(work, "\\\"") || HasSuffix(work, "\\\\\"")) {
 					got.list = append(got.list, &word{
 						Str: work,
 						Ty:  wordT_word,
@@ -211,7 +211,7 @@ func getWordsWitchFile(path string) GoWords {
 			case scannerStatus_quote2:
 				work = work + str
 				stop = true
-				if str == "'" {
+				if str == "'" && (!HasSuffix(work, "\\'") || HasSuffix(work, "\\\\'")) {
 					got.list = append(got.list, &word{
 						Str: work,
 						Ty:  wordT_word,

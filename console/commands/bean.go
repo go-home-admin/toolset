@@ -26,6 +26,11 @@ func (BeanCommand) Configure() command.Configure {
 			},
 			Option: []command.ArgParam{
 				{
+					Name:        "name",
+					Description: "跳过目录",
+					Default:     "New{name}",
+				},
+				{
 					Name:        "scan",
 					Description: "扫码目录下的源码; shell(pwd)",
 					Default:     "@root",
@@ -40,7 +45,11 @@ func (BeanCommand) Configure() command.Configure {
 	}
 }
 
+var newName = "New{name}"
+
 func (BeanCommand) Execute(input command.Input) {
+	newName = input.GetOption("name")
+
 	root := getRootPath()
 	scan := input.GetOption("scan")
 	scan = strings.Replace(scan, "@root", root, 1)
@@ -208,7 +217,7 @@ func genInitializeNewStr(name string) string {
 		name = name[1:]
 	}
 
-	return "New" + name
+	return strings.Replace(newName, "{name}", name, 1)
 }
 
 // 生成 import => alias

@@ -31,17 +31,12 @@ func (ProtocCommand) Configure() command.Configure {
 				{
 					Name:        "proto_path",
 					Description: "protoc后面拼接的proto_path, 可以传入多个",
-					Default:     "@root/protobuf/common/http",
+					Default:     "@root/protobuf/common",
 				},
 				{
 					Name:        "go_out",
 					Description: "生成文件到指定目录",
 					Default:     "@root/generate/proto",
-				},
-				{
-					Name:        "show",
-					Description: "是否打印protoc命令",
-					Default:     "false",
 				},
 			},
 		},
@@ -51,7 +46,7 @@ func (ProtocCommand) Configure() command.Configure {
 var show = false
 
 func (ProtocCommand) Execute(input command.Input) {
-	show = input.GetOption("show") != "false"
+	show = input.GetOption("debug") != "false"
 	root := getRootPath()
 	_, err := exec.LookPath("protoc")
 	if err != nil {
@@ -71,6 +66,10 @@ func (ProtocCommand) Execute(input command.Input) {
 	for _, s := range input.GetOptions("proto_path") {
 		s = strings.Replace(s, "@root", root, 1)
 		pps = append(pps, "--proto_path="+s)
+		// 子目录也加入进来
+		for _, dir := range parser.GetChildrenDir(s) {
+			pps = append(pps, "--proto_path="+dir.Path)
+		}
 	}
 	// path/*.proto 不是protoc命令提供的, 如果这里执行需要每一个文件一个命令
 	for _, dir := range parser.GetChildrenDir(path) {

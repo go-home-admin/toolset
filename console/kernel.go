@@ -25,6 +25,13 @@ func (k *Kernel) Run() {
 			return val, true
 		},
 	})
+	app.AddBaseOption(command.ArgParam{
+		Name:        "debug",
+		Description: "是否显示明细",
+		Call: func(val string, c *command.Console) (string, bool) {
+			return "true", true
+		},
+	})
 
 	for _, provider := range commands.GetAllProvider() {
 		if v, ok := provider.(command.Command); ok {

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -115,7 +116,8 @@ func GetFileParser(path string) (GoFileParser, error) {
 				for _, w := range nl {
 					str += w.Str
 				}
-				fmt.Println("文件块作用域似乎解析有错误", path, offset, str)
+				fmt.Println("文件块作用域似乎解析有错误\n", path, "\n", offset, "\n", str)
+				os.Exit(1)
 			}
 		}
 	}
@@ -224,11 +226,13 @@ func (d GoDoc) GetAlias() string {
 		if w.Ty == wordT_word {
 			if w.Str == "Bean" {
 				if l[i-1].Str == "@" {
-					num = 1
+					num = i
 				}
-			} else if num == 1 {
+			} else if num == -1 {
 				return w.Str[1 : len(w.Str)-1]
 			}
+		} else if num == -i && w.Str == "(" {
+			num = -1
 		}
 	}
 	return ""
@@ -386,6 +390,7 @@ func handleFunds(l []*word, offset int) (GoFunc, int) {
 			interCount++
 		}
 	}
+
 	if interCount != 0 {
 		for i := 0; i <= interCount; i++ {
 			_, et := GetBrackets(l[offset:], "{", "}")
@@ -394,7 +399,8 @@ func handleFunds(l []*word, offset int) (GoFunc, int) {
 	} else {
 		offset = offset + et
 	}
-	return GoFunc{Name: name}, offset
+
+	return GoFunc{Name: name}, offset + 1
 }
 func handleCosts(l []*word, offset int) (map[string]string, int) {
 	return handleVars(l, offset)
@@ -411,7 +417,11 @@ func handleVars(l []*word, offset int) (map[string]string, int) {
 				nl := l[offset+last-1:]
 				offset = offset + last - 1
 				_, et := GetBrackets(nl, "{", "}")
-				return nil, offset + et + 1
+				offset = offset + et + 1
+				// 检查是否 struct 实例化
+				_, et = GetBrackets(l[offset:], "{", "}")
+				offset = offset + et + 1
+				return nil, offset
 			} else {
 				nl := l[offset:]
 				_, et := GetBrackets(nl, "{", "}")
@@ -427,4 +437,12 @@ func handleVars(l []*word, offset int) (map[string]string, int) {
 		_, et := GetBrackets(nl, "(", ")")
 		return nil, offset + et + 1
 	}
+}
+
+func toStr(l []*word) string {
+	s := ""
+	for _, w := range l {
+		s += w.Str
+	}
+	return s
 }
