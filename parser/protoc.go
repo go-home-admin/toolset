@@ -1,10 +1,11 @@
 package parser
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
-/**
-golang parser 非完整token实现
-*/
+// ProtocFileParser 解释proto文件结构
 type ProtocFileParser struct {
 	Doc         string
 	Syntax      string
@@ -47,15 +48,17 @@ type Message struct {
 	Opt  map[string]Option
 }
 type Attr struct {
-	Doc  string
-	Name string
-	ty   string
-	num  int
+	Doc      string
+	Name     string
+	Ty       string
+	Num      int
+	Repeated bool
 }
 
 type Enum struct {
 	Doc  string
 	Name string
+	Opt  []Attr
 }
 
 func NewProtocParserForDir(path string) map[string][]ProtocFileParser {
@@ -256,21 +259,36 @@ func protoMessage(l []*word, offset int) (Message, int) {
 	offset = offset + i
 	st, et := GetBrackets(l[offset:], "{", "}")
 	newOffset := offset + et
-	nl := l[offset+st : offset+et]
+	nl := l[offset+st+1 : offset+et]
 
 	got := Message{
 		Name: name,
-		Attr: nil,
+		Attr: make([]Attr, 0),
 		Opt:  nil,
 	}
+
+	attr := Attr{}
 	for offset := 0; offset < len(nl); offset++ {
 		work := nl[offset]
 		switch work.Ty {
-		case wordT_line:
-		case wordT_division:
-		case wordT_doc:
 		case wordT_word:
-
+			if attr.Ty == "" {
+				switch work.Str {
+				case "repeated": // 重复的
+					attr.Repeated = true
+				case "reserved": // 保留标识符
+				default: // case "double", "float", "int32", "int64", "unit32", "unit64", "fixed32", "fixed64", "sfixed32", "sfixed64", "bool", "string", "bytes":
+					attr.Ty = work.Str
+				}
+			} else if attr.Name == "" {
+				attr.Name = work.Str
+			} else {
+				attr.Num, _ = strconv.Atoi(work.Str)
+				got.Attr = append(got.Attr, attr)
+				attr = Attr{}
+			}
+		default:
+			attr.Doc += work.Str
 		}
 	}
 
@@ -284,17 +302,21 @@ func protoEnum(l []*word, offset int) (Enum, int) {
 	newOffset := offset + et
 	nl := l[offset+st : offset+et]
 
-	got := Enum{
-		Name: name,
-	}
+	got := Enum{Name: name, Opt: make([]Attr, 0)}
+	attr := Attr{}
 	for offset := 0; offset < len(nl); offset++ {
 		work := nl[offset]
 		switch work.Ty {
-		case wordT_line:
-		case wordT_division:
-		case wordT_doc:
 		case wordT_word:
-
+			if attr.Name == "" {
+				attr.Name = work.Str
+			} else {
+				attr.Num, _ = strconv.Atoi(work.Str)
+				got.Opt = append(got.Opt, attr)
+				attr = Attr{}
+			}
+		default:
+			attr.Doc += work.Str
 		}
 	}
 
@@ -302,7 +324,7 @@ func protoEnum(l []*word, offset int) (Enum, int) {
 }
 
 func protoExtend(l []*word, offset int) (Message, int) {
-	name, i := GetFistWordBehindStr(l[offset:], "enum")
+	name, i := GetFistWordBehindStr(l[offset:], "extend")
 	offset = offset + i
 	st, et := GetBrackets(l[offset:], "{", "}")
 	newOffset := offset + et
