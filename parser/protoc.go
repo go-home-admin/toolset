@@ -53,6 +53,7 @@ type Attr struct {
 	Ty       string
 	Num      int
 	Repeated bool
+	Message  *Message
 }
 
 type Enum struct {
@@ -274,11 +275,35 @@ func protoMessage(l []*word, offset int) (Message, int) {
 		case wordT_word:
 			if attr.Ty == "" {
 				switch work.Str {
+				case "message":
+					attr.Ty = "message"
+					fallthrough
+				case "enum":
+					attr.Ty = "enum"
+					fallthrough
+				case "oneof":
+					if attr.Ty == "" {
+						attr.Ty = "oneof"
+					}
+					attr.Name, _ = GetFistWord(nl[offset+1:])
+					st, et := GetBrackets(nl[offset:], "{", "}")
+					attr.Message = protoOtherMessage(attr.Name, nl[offset+st:offset+et+1])
+					got.Attr = append(got.Attr, attr)
+					attr = Attr{}
+					offset = offset + et + 1
 				case "repeated": // 重复的
 					attr.Repeated = true
 				case "reserved": // 保留标识符
 				default: // case "double", "float", "int32", "int64", "unit32", "unit64", "fixed32", "fixed64", "sfixed32", "sfixed64", "bool", "string", "bytes":
 					attr.Ty = work.Str
+					for i := offset + 1; i < offset+10; i = i + 2 {
+						if nl[i].Str == "." {
+							attr.Ty += "." + nl[i+1].Str
+							offset = i + 1
+						} else {
+							break
+						}
+					}
 				}
 			} else if attr.Name == "" {
 				attr.Name = work.Str
@@ -295,12 +320,71 @@ func protoMessage(l []*word, offset int) (Message, int) {
 	return got, newOffset
 }
 
+func protoOtherMessage(name string, l []*word) *Message {
+	nl := l[1 : len(l)-1]
+	got := Message{
+		Name: name,
+		Attr: make([]Attr, 0),
+		Opt:  nil,
+	}
+	attr := Attr{}
+	for offset := 0; offset < len(nl); offset++ {
+		work := nl[offset]
+		switch work.Ty {
+		case wordT_word:
+			if attr.Ty == "" {
+				switch work.Str {
+				case "message":
+					attr.Ty = "message"
+					fallthrough
+				case "enum":
+					attr.Ty = "enum"
+					fallthrough
+				case "oneof":
+					if attr.Ty == "" {
+						attr.Ty = "oneof"
+					}
+					attr.Name, _ = GetFistWord(nl[offset+1:])
+					st, et := GetBrackets(nl[offset:], "{", "}")
+					attr.Message = protoOtherMessage(attr.Name, nl[offset+st:offset+et+1])
+					got.Attr = append(got.Attr, attr)
+					attr = Attr{}
+					offset = offset + et + 1
+				case "repeated": // 重复的
+					attr.Repeated = true
+				case "reserved": // 保留标识符
+				default: // case "double", "float", "int32", "int64", "unit32", "unit64", "fixed32", "fixed64", "sfixed32", "sfixed64", "bool", "string", "bytes":
+					attr.Ty = work.Str
+					for i := offset + 1; i < offset+10; i = i + 2 {
+						if nl[i].Str == "." {
+							attr.Ty += "." + nl[i+1].Str
+							offset = i + 1
+						} else {
+							break
+						}
+					}
+				}
+			} else if attr.Name == "" {
+				attr.Name = work.Str
+			} else {
+				attr.Num, _ = strconv.Atoi(work.Str)
+				got.Attr = append(got.Attr, attr)
+				attr = Attr{}
+			}
+		default:
+			attr.Doc += work.Str
+		}
+	}
+
+	return &got
+}
+
 func protoEnum(l []*word, offset int) (Enum, int) {
 	name, i := GetFistWordBehindStr(l[offset:], "enum")
 	offset = offset + i
 	st, et := GetBrackets(l[offset:], "{", "}")
 	newOffset := offset + et
-	nl := l[offset+st : offset+et]
+	nl := l[offset+st+1 : offset+et]
 
 	got := Enum{Name: name, Opt: make([]Attr, 0)}
 	attr := Attr{}
