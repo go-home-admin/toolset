@@ -28,7 +28,7 @@ func (SwaggerCommand) Configure() command.Configure {
 				{
 					Name:        "out_route",
 					Description: "生成文件到指定目录",
-					Default:     "@root/routes",
+					Default:     "@root/web",
 				},
 			},
 		},
