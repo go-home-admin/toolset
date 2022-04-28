@@ -88,8 +88,8 @@ func (SwaggerCommand) Execute(input command.Input) {
 	}
 	by, _ := json.Marshal(swagger)
 	wpath := out + "/openapi_gen.json"
-	if !parser.DirIsExist(wpath) {
-		_ = os.MkdirAll(wpath, 0760)
+	if !parser.DirIsExist(out) {
+		_ = os.MkdirAll(out, 0760)
 	}
 	_ = ioutil.WriteFile(wpath, by, 0766)
 	fmt.Println("gen openapi.json to " + wpath)
