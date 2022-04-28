@@ -258,14 +258,21 @@ func getArrGoWord(l []*word) [][]string {
 	arr := GetArrWord(l)
 	for _, i := range arr {
 		lis := i[len(i)-1].Str
-		if lis[0:1] == "`" && len(i) >= 3 {
+		if lis[0:1] == "`" && len(i) >= 2 {
 			ty := ""
 			for in := 1; in < len(i)-1; in++ {
 				if i[in].Ty != wordT_doc {
 					ty = ty + i[in].Str
 				}
 			}
-			got = append(got, []string{i[0].Str, ty, lis})
+			if ty == "" || i[0].Str == "*" {
+				ty = i[0].Str + ty
+				arr2 := strings.Split(ty, ".")
+				name := arr2[len(arr2)-1]
+				got = append(got, []string{strings.Trim(name, "*"), ty, lis})
+			} else {
+				got = append(got, []string{i[0].Str, ty, lis})
+			}
 		}
 	}
 
@@ -313,24 +320,28 @@ func handleTypes(l []*word, offset int, d GoFileParser) (GoType, int) {
 		nl := nl[st+1 : et]
 		arrLn := getArrGoWord(nl)
 		for _, wordAttrs := range arrLn {
-			// 获取属性信息
-			// TODO 当前仅支持有tag的
-			if len(wordAttrs) == 3 && strings.Index(wordAttrs[2], "`") == 0 {
-				attr := GoTypeAttr{
-					Name:     wordAttrs[0],
-					TypeName: wordAttrs[1],
-					Tag:      map[string]TagDoc{},
-				}
-				getTypeAlias(wordAttrs[1], d, &attr)
-				// 解析 go tag
-				tagArr := getArrGoTag(wordAttrs[2])
-
-				for _, tagStrArr := range tagArr {
-					td := tagStrArr[1]
-					attr.Tag[tagStrArr[0]] = TagDoc(td[1 : len(td)-1])
-				}
-				got.Attrs[attr.Name] = attr
+			if strings.Index(wordAttrs[len(wordAttrs)-1], "`") != 0 {
+				break
 			}
+			// 获取属性信息
+			attr := GoTypeAttr{}
+			for i := len(wordAttrs) - 1; i >= 0; i-- {
+				s := wordAttrs[i]
+				if attr.Tag == nil {
+					// 解析 go tag
+					attr.Tag = make(map[string]TagDoc)
+					for _, tagStrArr := range getArrGoTag(s) {
+						td := tagStrArr[1]
+						attr.Tag[tagStrArr[0]] = TagDoc(td[1 : len(td)-1])
+					}
+				} else if attr.TypeName == "" {
+					attr.TypeName = s
+					getTypeAlias(s, d, &attr)
+				} else {
+					attr.Name = s
+				}
+			}
+			got.Attrs[attr.Name] = attr
 		}
 	} else {
 		// struct 别名
