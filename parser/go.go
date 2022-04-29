@@ -233,7 +233,7 @@ func (d GoDoc) GetAlias() string {
 			} else if num == -1 {
 				return w.Str[1 : len(w.Str)-1]
 			}
-		} else if num == -i && w.Str == "(" {
+		} else if num == (i-1) && w.Str == "(" {
 			num = -1
 		}
 	}
