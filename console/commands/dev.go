@@ -12,8 +12,8 @@ type DevCommand struct{}
 
 func (DevCommand) Configure() command.Configure {
 	return command.Configure{
-		Name:        "dev",
-		Description: "快速启动",
+		Name:        "make",
+		Description: "执行所有make命令, 默认参数",
 	}
 }
 
@@ -24,7 +24,6 @@ func (DevCommand) Execute(input command.Input) {
 	runOtherCommand("toolset", "make:route", "-root="+root)
 	runOtherCommand("toolset", "make:orm", "-root="+root)
 	runOtherCommand("toolset", "make:bean", "-root="+root)
-	runOtherCommand("go", "run", root+"/main.go")
 }
 
 func runOtherCommand(name string, arg ...string) {
