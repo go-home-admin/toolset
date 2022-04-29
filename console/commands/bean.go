@@ -159,7 +159,8 @@ func genProvider(bc beanCache, m map[string]string) string {
 				"\n\tif " + sVar + " == nil {" + // if _provider == nil {
 				"\n\t\t" + sVar + " = " + "&" + goType.Name + "{}" // provider := provider{}
 
-			for attrName, attr := range goType.Attrs {
+			for _, attrName := range goType.AttrsSort {
+				attr := goType.Attrs[attrName]
 				pointer := ""
 				if !attr.IsPointer() {
 					pointer = "*"

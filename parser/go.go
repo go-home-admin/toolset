@@ -184,10 +184,12 @@ func handleImports(l []*word, offset int) (map[string]string, int) {
 }
 
 type GoType struct {
-	Doc   GoDoc
-	Name  string
-	Attrs map[string]GoTypeAttr
+	Doc       GoDoc
+	Name      string
+	Attrs     map[string]GoTypeAttr
+	AttrsSort []string
 }
+
 type GoTypeAttr struct {
 	Name       string
 	TypeName   string
@@ -305,9 +307,10 @@ func handleTypes(l []*word, offset int, d GoFileParser) (GoType, int) {
 	newOffset := offset
 	nl := l[offset:]
 	got := GoType{
-		Doc:   "",
-		Name:  "",
-		Attrs: map[string]GoTypeAttr{},
+		Doc:       "",
+		Name:      "",
+		Attrs:     map[string]GoTypeAttr{},
+		AttrsSort: make([]string, 0),
 	}
 	ok, off := GetLastIsIdentifier(nl, "{")
 	if ok {
@@ -342,6 +345,7 @@ func handleTypes(l []*word, offset int, d GoFileParser) (GoType, int) {
 				}
 			}
 			got.Attrs[attr.Name] = attr
+			got.AttrsSort = append(got.AttrsSort, attr.Name)
 		}
 	} else {
 		// struct 别名
