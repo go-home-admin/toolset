@@ -133,7 +133,7 @@ type Controller struct {
 import ({import})
 
 // {action}  {doc}
-func (receiver *Controller) {action}(req *{controllerAlias}.{param}, ctx *gin.Context) (*{controllerAlias}.{return}, error) {
+func (receiver *Controller) {action}(req *{controllerAlias}.{param}, ctx http.Context) (*{controllerAlias}.{return}, error) {
 	// TODO 这里写业务
 	return &{controllerAlias}.{return}{}, nil
 }
@@ -149,7 +149,7 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := receiver.{action}(req, ctx)
+	resp, err := receiver.{action}(req, http.NewContext(ctx))
 	if err != nil {
 		{providers}.ErrorResponse(ctx, err)
 		return
@@ -160,7 +160,8 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 `
 	gin := "github.com/gin-gonic/gin"
 	providers := "github.com/go-home-admin/home/app/providers"
-	imports := map[string]string{gin: gin, providers: providers}
+	http := "github.com/go-home-admin/home/app/http"
+	imports := map[string]string{gin: gin, providers: providers, http: http}
 	goMod := getModModule()
 
 	for rName, rpc := range server.Rpc {
