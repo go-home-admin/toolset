@@ -143,25 +143,24 @@ func (receiver *Controller) {action}(req *{controllerAlias}.{param}, ctx http.Co
 func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 	req := &{controllerAlias}.{param}{}
 	err := ctx.ShouldBind(req)
-
+	context := http.NewContext(ctx)
 	if err != nil {
-		{providers}.ErrorRequest(ctx, err)
+		context.Fail(err)
+		return
+	}
+	
+	resp, err := receiver.{action}(req, context)
+	if err != nil {
+		context.Fail(err)
 		return
 	}
 
-	resp, err := receiver.{action}(req, http.NewContext(ctx))
-	if err != nil {
-		{providers}.ErrorResponse(ctx, err)
-		return
-	}
-
-	{providers}.SuccessResponse(ctx, resp)
+	context.Success(resp)
 }
 `
 	gin := "github.com/gin-gonic/gin"
-	providers := "github.com/go-home-admin/home/app/providers"
 	http := "github.com/go-home-admin/home/app/http"
-	imports := map[string]string{gin: gin, providers: providers, http: http}
+	imports := map[string]string{gin: gin, http: http}
 	goMod := getModModule()
 
 	for rName, rpc := range server.Rpc {
@@ -198,7 +197,6 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 					"{url}":             url,
 					"{action}":          actionName,
 					"{controllerAlias}": controllerAlias,
-					"{providers}":       m[providers],
 					"{param}":           rpc.Param,
 					"{return}":          rpc.Return,
 				} {
