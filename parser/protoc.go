@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // ProtocFileParser 解释proto文件结构
@@ -196,12 +197,14 @@ func protoService(l []*word, offset int) (Service, int) {
 		Opt:  make(map[string]Option, 0),
 		Rpc:  make(map[string]ServiceRpc, 0),
 	}
+	doc := ""
 	for offset := 0; offset < len(nl); offset++ {
 		work := nl[offset]
 		switch work.Ty {
 		case wordT_line:
 		case wordT_division:
 		case wordT_doc:
+			doc += work.Str
 		case wordT_word:
 			switch work.Str {
 			case "option":
@@ -211,6 +214,7 @@ func protoService(l []*word, offset int) (Service, int) {
 			case "rpc":
 				var val ServiceRpc
 				val, offset = protoRpc(nl, offset)
+				val.Doc = strings.ReplaceAll(doc, "//", "")
 				got.Rpc[val.Name] = val
 			}
 		}
