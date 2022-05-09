@@ -3,6 +3,9 @@
 go install github.com/go-home-admin/toolset
 ````
 
+![image](https://github.com/go-home-admin/toolset/blob/main/show.gif)
+
+
 ## 帮助命令
 ````shell
 user@macOs path $ toolset
