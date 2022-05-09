@@ -9,7 +9,7 @@ type OrmMysqlTableName struct {
 
 func NewOrmMysqlTableName() *OrmMysqlTableName {
 	orm := &OrmMysqlTableName{}
-	orm.db = providers.NewMysqlProvider().GetBean("mysql").(*gorm.DB)
+	orm.db = app.GetBean("mysql, {db}").(*gorm.DB)
 	return orm
 }
 

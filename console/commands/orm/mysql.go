@@ -41,6 +41,7 @@ func GenMysql(name string, conf map[interface{}]interface{}, out string) {
 		baseFunStr := baseMysqlFuncStr
 		for old, new := range map[string]string{
 			"MysqlTableName": parser.StringToHump(table),
+			"{db}":           name,
 		} {
 			baseFunStr = strings.ReplaceAll(baseFunStr, old, new)
 		}
@@ -175,9 +176,9 @@ func getImports(tableColumns map[string][]tableColumn) map[string]string {
 		// 初始引入
 		tm := map[string]string{
 			"gorm.io/gorm": "gorm",
-			"github.com/go-home-admin/home/bootstrap/providers": "providers",
-			"github.com/sirupsen/logrus":                        "logrus",
-			"database/sql":                                      "sql",
+			"github.com/go-home-admin/home/bootstrap/services/app": "app",
+			"github.com/sirupsen/logrus":                           "logrus",
+			"database/sql":                                         "sql",
 		}
 		for _, column := range columns {
 			index := strings.Index(column.GoaType, ".")
