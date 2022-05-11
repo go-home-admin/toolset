@@ -1,6 +1,6 @@
 
 func (receiver *MysqlTableName) TableName() string {
-	return "action_logs"
+	return "{table_name}"
 }
 
 type OrmMysqlTableName struct {

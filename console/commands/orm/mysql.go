@@ -41,6 +41,7 @@ func GenMysql(name string, conf map[interface{}]interface{}, out string) {
 		baseFunStr := baseMysqlFuncStr
 		for old, new := range map[string]string{
 			"MysqlTableName": parser.StringToHump(table),
+			"{table_name}":   table,
 			"{db}":           name,
 		} {
 			baseFunStr = strings.ReplaceAll(baseFunStr, old, new)
