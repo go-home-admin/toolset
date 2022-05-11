@@ -93,6 +93,11 @@ func genFieldFunc(table string, columns []tableColumn) string {
 
 		if column.PrimaryKey != "" {
 			// if 主键, 生成In, > <
+			str += "\nfunc (orm *Orm" + TableName + ") InsertGet" + column.ColumnName + "(row *" + TableName + ") " + column.GoaType + " {" +
+				"\n\torm.db.Create(row)" +
+				"\n\treturn row." + column.ColumnName +
+				"\n}"
+
 			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "In(val []" + column.GoaType + ") *Orm" + TableName + " {" +
 				"\n\torm.db.Where(\"`" + column.Field + "` IN ?\", val)" +
 				"\n\treturn orm" +
