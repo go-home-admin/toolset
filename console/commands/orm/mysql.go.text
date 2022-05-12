@@ -97,6 +97,10 @@ func (orm *OrmMysqlTableName) Inserts(rows []*MysqlTableName) *gorm.DB {
 	return orm.db.Create(rows)
 }
 
+func (orm *OrmMysqlTableName) Del() *gorm.DB {
+	return orm.db.Delete(&MysqlTableName{})
+}
+
 func (orm *OrmMysqlTableName) Limit(limit int) *OrmMysqlTableName {
 	orm.db.Limit(limit)
 	return orm
