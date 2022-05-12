@@ -97,6 +97,11 @@ func (orm *OrmMysqlTableName) Inserts(rows []*MysqlTableName) *gorm.DB {
 	return orm.db.Create(rows)
 }
 
+func (orm *OrmMysqlTableName) Order(value interface{}) *OrmMysqlTableName {
+	orm.db.Order(value)
+	return orm
+}
+
 func (orm *OrmMysqlTableName) Limit(limit int) *OrmMysqlTableName {
 	orm.db.Limit(limit)
 	return orm
