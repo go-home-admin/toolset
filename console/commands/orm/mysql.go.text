@@ -106,9 +106,10 @@ func (orm *OrmMysqlTableName) Offset(offset int) *OrmMysqlTableName {
 	orm.db.Offset(offset)
 	return orm
 }
-
-func (orm *OrmMysqlTableName) Get() (MysqlTableNameList, int64) {
-	return orm.Find()
+// 直接查询列表, 如果需要条数, 使用Find()
+func (orm *OrmMysqlTableName) Get() MysqlTableNameList {
+	got, _ := orm.Find()
+	return got
 }
 
 // Pluck used to query single column from a model as a map
@@ -118,8 +119,14 @@ func (orm *OrmMysqlTableName) Pluck(column string, dest interface{}) *gorm.DB {
 	return orm.db.Model(&MysqlTableName{}).Pluck(column, dest)
 }
 
+// Delete 有条件删除
 func (orm *OrmMysqlTableName) Delete(conds ...interface{}) *gorm.DB {
-	return orm.db.Model(&MysqlTableName{}).Delete(&MysqlTableName{}, conds...)
+	return orm.db.Delete(&MysqlTableName{}, conds...)
+}
+
+// DeleteAll 删除所有
+func (orm *OrmMysqlTableName) DeleteAll() *gorm.DB {
+	return orm.db.Exec("DELETE FROM {table_name}")
 }
 
 func (orm *OrmMysqlTableName) Count() int64 {
@@ -151,7 +158,7 @@ func (orm *OrmMysqlTableName) Last(conds ...interface{}) (*MysqlTableName, int64
 
 func (orm *OrmMysqlTableName) Find(conds ...interface{}) (MysqlTableNameList, int64) {
 	list := make([]*MysqlTableName, 0)
-	tx := orm.db.Model(&MysqlTableName{}).Find(list, conds...)
+	tx := orm.db.Model(&MysqlTableName{}).Find(&list, conds...)
 	if tx.Error != nil {
 		logrus.Error(tx.Error)
 	}

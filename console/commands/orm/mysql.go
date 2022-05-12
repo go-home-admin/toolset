@@ -205,7 +205,11 @@ func genOrmStruct(table string, columns []tableColumn) string {
 
 	str := `type {TableName} struct {`
 	for _, column := range columns {
-		str += "\n\t" + parser.StringToHump(column.Field) + " " + column.GoaType +
+		p := ""
+		if column.Nullable == "YES" {
+			p = "*"
+		}
+		str += "\n\t" + parser.StringToHump(column.Field) + " " + p + column.GoaType +
 			"`" + genGormTag(column) + "` // " +
 			strings.ReplaceAll(column.ColumnComment, "\n", " ")
 	}
