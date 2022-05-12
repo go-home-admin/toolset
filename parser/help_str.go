@@ -406,9 +406,10 @@ func GetImportStrForMap(m map[string]string) string {
 }
 
 // GenImportAlias 生成 import => alias
-func GenImportAlias(m map[string]string) map[string]string {
+func GenImportAlias(path, packageName string, m map[string]string) map[string]string {
 	aliasMapImport := make(map[string]string)
 	importMapAlias := make(map[string]string)
+
 	for _, imp := range m {
 		temp := strings.Split(imp, "/")
 		key := temp[len(temp)-1]
@@ -422,7 +423,13 @@ func GenImportAlias(m map[string]string) map[string]string {
 				}
 			}
 		}
-		aliasMapImport[key] = imp
+		if key == packageName {
+			if "/bootstrap/providers" != path {
+				aliasMapImport[key+"_2"] = imp
+			}
+		} else {
+			aliasMapImport[key] = imp
+		}
 	}
 	for s, s2 := range aliasMapImport {
 		importMapAlias[s2] = s

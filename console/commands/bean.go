@@ -98,7 +98,7 @@ type beanCache struct {
 func newBeanCache() beanCache {
 	return beanCache{
 		imports: map[string]string{
-			"github.com/go-home-admin/home/bootstrap/services/app": "github.com/go-home-admin/home/bootstrap/services/app",
+			"github.com/go-home-admin/home/bootstrap/providers": "github.com/go-home-admin/home/bootstrap/providers",
 		},
 		structList: make([]parser.GoType, 0),
 	}
@@ -112,7 +112,7 @@ func genBean(dir string, bc beanCache) {
 	context = append(context, "package "+bc.name)
 
 	// import
-	importAlias := parser.GenImportAlias(bc.imports)
+	importAlias := parser.GenImportAlias(strings.ReplaceAll(dir, getRootPath(), ""), bc.name, bc.imports)
 	if len(importAlias) != 0 {
 		context = append(context, "\nimport ("+getImportStr(bc, importAlias)+"\n)")
 	}
@@ -174,9 +174,12 @@ func genProvider(bc beanCache, m map[string]string) string {
 				}
 			}
 
-			constraint := m["github.com/go-home-admin/home/bootstrap/services/app"]
+			constraint := m["github.com/go-home-admin/home/bootstrap/providers"]
+			if constraint != "" {
+				constraint += "."
+			}
 			str = str +
-				"\n\t\t" + constraint + ".AfterProvider(" + sVar + ", \"" + goType.Doc.GetAlias() + "\")" +
+				"\n\t\t" + constraint + "AfterProvider(" + sVar + ", \"" + goType.Doc.GetAlias() + "\")" +
 				"\n\t}" +
 				"\n\treturn " + sVar +
 				"\n}"
@@ -205,9 +208,12 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 		beanAlias := tag.Get(0)
 		beanValue := tag.Get(1)
 
-		constraint := m["github.com/go-home-admin/home/bootstrap/services/app"]
+		providers := m["github.com/go-home-admin/home/bootstrap/providers"]
+		if providers != "" {
+			providers += "."
+		}
 
-		return constraint + ".GetBean(\"" + beanAlias + "\").(" + constraint + ".Bean)" +
+		return providers + "GetBean(\"" + beanAlias + "\").(" + providers + "Bean)" +
 			".GetBean(\"" + beanValue + "\").(*" + alias + name + ")"
 	}
 }
@@ -250,8 +256,9 @@ func genImportAlias(m map[string]string) map[string]string {
 // m = import => alias
 func getImportStr(bc beanCache, m map[string]string) string {
 	has := map[string]bool{
-		"github.com/go-home-admin/home/bootstrap/services/app": true,
+		"github.com/go-home-admin/home/bootstrap/providers": true,
 	}
+
 	for _, goType := range bc.structList {
 		if goType.Doc.HasAnnotation("@Bean") {
 			for _, attr := range goType.Attrs {
@@ -259,9 +266,9 @@ func getImportStr(bc beanCache, m map[string]string) string {
 					has[attr.TypeImport] = true
 				}
 			}
-
 		}
 	}
+
 	// 删除未使用的import
 	nm := make(map[string]string)
 	for s, vv := range m {

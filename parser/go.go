@@ -60,7 +60,7 @@ func getWordsWitchGo(l *GoWords) GoWords {
 }
 
 func GetFileParser(path string) (GoFileParser, error) {
-	d := GoFileParser{
+	d := &GoFileParser{
 		PackageName: "",
 		PackageDoc:  "",
 		Imports:     make(map[string]string),
@@ -122,7 +122,7 @@ func GetFileParser(path string) (GoFileParser, error) {
 		}
 	}
 
-	return d, nil
+	return *d, nil
 }
 
 func handlePackageName(l []*word, offset int) (string, int) {
@@ -184,19 +184,21 @@ func handleImports(l []*word, offset int) (map[string]string, int) {
 }
 
 type GoType struct {
-	Doc       GoDoc
-	Name      string
-	Attrs     map[string]GoTypeAttr
-	AttrsSort []string
+	Doc          GoDoc
+	Name         string
+	Attrs        map[string]GoTypeAttr
+	AttrsSort    []string
+	GoFileParser *GoFileParser
 }
 
 type GoTypeAttr struct {
-	Name       string
-	TypeName   string
-	TypeAlias  string
-	TypeImport string
-	InPackage  bool // 是否本包的引用
-	Tag        map[string]TagDoc
+	Name         string
+	TypeName     string
+	TypeAlias    string
+	TypeImport   string
+	InPackage    bool // 是否本包的引用
+	Tag          map[string]TagDoc
+	GoFileParser *GoFileParser
 }
 
 type TagDoc string
@@ -303,14 +305,15 @@ func getArrGoTag(source string) [][]string {
 
 	return got
 }
-func handleTypes(l []*word, offset int, d GoFileParser) (GoType, int) {
+func handleTypes(l []*word, offset int, d *GoFileParser) (GoType, int) {
 	newOffset := offset
 	nl := l[offset:]
 	got := GoType{
-		Doc:       "",
-		Name:      "",
-		Attrs:     map[string]GoTypeAttr{},
-		AttrsSort: make([]string, 0),
+		Doc:          "",
+		Name:         "",
+		Attrs:        map[string]GoTypeAttr{},
+		AttrsSort:    make([]string, 0),
+		GoFileParser: d,
 	}
 	ok, off := GetLastIsIdentifier(nl, "{")
 	if ok {
@@ -327,7 +330,7 @@ func handleTypes(l []*word, offset int, d GoFileParser) (GoType, int) {
 				break
 			}
 			// 获取属性信息
-			attr := GoTypeAttr{}
+			attr := GoTypeAttr{GoFileParser: d}
 			for i := len(wordAttrs) - 1; i >= 0; i-- {
 				s := wordAttrs[i]
 				if attr.Tag == nil {
@@ -357,7 +360,7 @@ func handleTypes(l []*word, offset int, d GoFileParser) (GoType, int) {
 }
 
 // 根据属性声明类型或者类型的引入名称
-func getTypeAlias(str string, d GoFileParser, attr *GoTypeAttr) {
+func getTypeAlias(str string, d *GoFileParser, attr *GoTypeAttr) {
 	wArr := GetWords(str)
 	wf := wArr[0]
 
