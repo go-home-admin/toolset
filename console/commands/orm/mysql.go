@@ -62,7 +62,7 @@ func genListFunc(table string, columns []tableColumn) string {
 	str := "\ntype " + TableName + "List []*" + TableName
 	for _, column := range columns {
 		// 索引，或者枚举字段
-		if strInStr(column.Field, []string{"id", "code"}) {
+		if strInStr(column.COLUMN_NAME, []string{"id", "code"}) {
 			str += "\nfunc (l " + TableName + "List) Get" + column.ColumnName + "List() []" + column.GoaType + " {" +
 				"\n\tgot := make([]" + column.GoaType + ", 0)\n\tfor _, val := range l {" +
 				"\n\t\tgot = append(got, val." + column.ColumnName + ")" +
@@ -88,11 +88,11 @@ func genFieldFunc(table string, columns []tableColumn) string {
 	for _, column := range columns {
 		// 等于函数
 		str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "(val " + column.GoaType + ") *Orm" + TableName + " {" +
-			"\n\torm.db.Where(\"`" + column.Field + "` = ?\", val)" +
+			"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` = ?\", val)" +
 			"\n\treturn orm" +
 			"\n}"
 
-		if column.PrimaryKey != "" {
+		if column.COLUMN_KEY != "" {
 			// if 主键, 生成In, > <
 			str += "\nfunc (orm *Orm" + TableName + ") InsertGet" + column.ColumnName + "(row *" + TableName + ") " + column.GoaType + " {" +
 				"\n\torm.db.Create(row)" +
@@ -100,55 +100,55 @@ func genFieldFunc(table string, columns []tableColumn) string {
 				"\n}"
 
 			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "In(val []" + column.GoaType + ") *Orm" + TableName + " {" +
-				"\n\torm.db.Where(\"`" + column.Field + "` IN ?\", val)" +
+				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` IN ?\", val)" +
 				"\n\treturn orm" +
 				"\n}"
 
 			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Gt(val " + column.GoaType + ") *Orm" + TableName + " {" +
-				"\n\torm.db.Where(\"`" + column.Field + "` > ?\", val)" +
+				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` > ?\", val)" +
 				"\n\treturn orm" +
 				"\n}"
 			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Gte(val " + column.GoaType + ") *Orm" + TableName + " {" +
-				"\n\torm.db.Where(\"`" + column.Field + "` >= ?\", val)" +
+				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` >= ?\", val)" +
 				"\n\treturn orm" +
 				"\n}"
 
 			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Lt(val " + column.GoaType + ") *Orm" + TableName + " {" +
-				"\n\torm.db.Where(\"`" + column.Field + "` < ?\", val)" +
+				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` < ?\", val)" +
 				"\n\treturn orm" +
 				"\n}"
 			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Lte(val " + column.GoaType + ") *Orm" + TableName + " {" +
-				"\n\torm.db.Where(\"`" + column.Field + "` <= ?\", val)" +
+				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` <= ?\", val)" +
 				"\n\treturn orm" +
 				"\n}"
 		} else {
 			// 索引，或者枚举字段
-			if strInStr(column.Field, []string{"id", "code", "status", "state"}) {
+			if strInStr(column.COLUMN_NAME, []string{"id", "code", "status", "state"}) {
 				// else if 名称存在 id, code, status 生成in操作
 				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "In(val []" + column.GoaType + ") *Orm" + TableName + " {" +
-					"\n\torm.db.Where(\"`" + column.Field + "` IN ?\", val)" +
+					"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` IN ?\", val)" +
 					"\n\treturn orm" +
 					"\n}"
 
 				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Ne(val " + column.GoaType + ") *Orm" + TableName + " {" +
-					"\n\torm.db.Where(\"`" + column.Field + "` <> ?\", val)" +
+					"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` <> ?\", val)" +
 					"\n\treturn orm" +
 					"\n}"
 			}
 			// 时间字段
-			if strInStr(column.Field, []string{"created", "updated", "time", "_at"}) || (column.GoaType == "database.Time") {
+			if strInStr(column.COLUMN_NAME, []string{"created", "updated", "time", "_at"}) || (column.GoaType == "database.Time") {
 				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Between(begin " + column.GoaType + ", end " + column.GoaType + ") *Orm" + TableName + " {" +
-					"\n\torm.db.Where(\"`" + column.Field + "` BETWEEN ? AND ?\", begin, end)" +
+					"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` BETWEEN ? AND ?\", begin, end)" +
 					"\n\treturn orm" +
 					"\n}"
 
 				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Lte(val " + column.GoaType + ") *Orm" + TableName + " {" +
-					"\n\torm.db.Where(\"`" + column.Field + "` <= ?\", val)" +
+					"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` <= ?\", val)" +
 					"\n\treturn orm" +
 					"\n}"
 
 				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Gte(val " + column.GoaType + ") *Orm" + TableName + " {" +
-					"\n\torm.db.Where(\"`" + column.Field + "` >= ?\", val)" +
+					"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` >= ?\", val)" +
 					"\n\treturn orm" +
 					"\n}"
 			}
@@ -206,12 +206,12 @@ func genOrmStruct(table string, columns []tableColumn) string {
 	str := `type {TableName} struct {`
 	for _, column := range columns {
 		p := ""
-		if column.Nullable == "YES" {
+		if *column.IS_NULLABLE == "YES" {
 			p = "*"
 		}
-		str += "\n\t" + parser.StringToHump(column.Field) + " " + p + column.GoaType +
+		str += "\n\t" + parser.StringToHump(column.COLUMN_NAME) + " " + p + column.GoaType +
 			"`" + genGormTag(column) + "` // " +
-			strings.ReplaceAll(column.ColumnComment, "\n", " ")
+			strings.ReplaceAll(column.COLUMN_COMMENT, "\n", " ")
 	}
 
 	str = strings.ReplaceAll(str, "{TableName}", TableName)
@@ -220,11 +220,44 @@ func genOrmStruct(table string, columns []tableColumn) string {
 
 func genGormTag(column tableColumn) string {
 	var arr []string
-	if column.PrimaryKey != "" {
-		arr = append(arr, "primaryKey")
+	// 字段
+	arr = append(arr, "column:"+column.COLUMN_NAME)
+	switch column.EXTRA {
+	case "":
+	case "auto_increment":
+		arr = append(arr, "autoIncrement")
+	case "on update current_timestamp()":
+		arr = append(arr, "autoUpdateTime")
 	}
 
-	arr = append(arr, "column:"+column.Field)
+	// 类型ing
+	arr = append(arr, "type:"+column.mysql.COLUMN_TYPE)
+	// 索引
+	if column.Index != nil {
+		for _, index := range column.Index {
+			switch index.INDEX_NAME {
+			case "PRIMARY":
+				arr = append(arr, "primaryKey")
+			default:
+				iStr := fmt.Sprintf("index:%v,class:%v", index.INDEX_NAME, index.INDEX_TYPE)
+				if index.NON_UNIQUE == "0" {
+					iStr += ",unique"
+				}
+				if index.COMMENT != "" {
+					iStr += ",comment:" + index.COMMENT
+				}
+				arr = append(arr, iStr)
+			}
+		}
+	}
+	// default
+	if column.COLUMN_DEFAULT != nil {
+		arr = append(arr, "default:"+*column.COLUMN_DEFAULT)
+	}
+
+	if column.COLUMN_COMMENT != "" {
+		arr = append(arr, fmt.Sprintf("comment:'%v'", strings.ReplaceAll(column.COLUMN_COMMENT, "'", "")))
+	}
 	str := ""
 	for i := 0; i < len(arr)-1; i++ {
 		str += arr[i] + ";"
@@ -239,12 +272,28 @@ type DB struct {
 
 func (d *DB) tableColumns() map[string][]tableColumn {
 	var sqlStr = `SELECT
-	COLUMN_NAME,
-	DATA_TYPE,
-	IS_NULLABLE,
+	TABLE_CATALOG,
+	TABLE_SCHEMA,
 	TABLE_NAME,
+	COLUMN_NAME,
+	ORDINAL_POSITION,
+	COLUMN_DEFAULT,
+	IS_NULLABLE,
+	DATA_TYPE,
+	CHARACTER_MAXIMUM_LENGTH,
+	CHARACTER_OCTET_LENGTH,
+	NUMERIC_PRECISION,
+	NUMERIC_SCALE,
+	DATETIME_PRECISION,
+	CHARACTER_SET_NAME,
+	COLLATION_NAME,
+	COLUMN_TYPE,
+	COLUMN_KEY,
+	EXTRA,
+	PRIVILEGES,
 	COLUMN_COMMENT,
-    COLUMN_KEY
+	IS_GENERATED,
+	GENERATION_EXPRESSION
 FROM
 	information_schema.COLUMNS 
 WHERE
@@ -260,36 +309,138 @@ ORDER BY
 	}
 
 	defer rows.Close()
+	tableIndex := d.tableIndex()
 	tableColumns := make(map[string][]tableColumn)
 	for rows.Next() {
 		col := tableColumn{}
-		err = rows.Scan(&col.ColumnName, &col.MysqlType, &col.Nullable, &col.TableName, &col.ColumnComment, &col.PrimaryKey)
+		err = rows.Scan(
+			&col.TABLE_CATALOG,
+			&col.TABLE_SCHEMA,
+			&col.TABLE_NAME,
+			&col.COLUMN_NAME,
+			&col.ORDINAL_POSITION,
+			&col.COLUMN_DEFAULT,
+			&col.IS_NULLABLE,
+			&col.DATA_TYPE,
+			&col.CHARACTER_MAXIMUM_LENGTH,
+			&col.CHARACTER_OCTET_LENGTH,
+			&col.NUMERIC_PRECISION,
+			&col.NUMERIC_SCALE,
+			&col.DATETIME_PRECISION,
+			&col.CHARACTER_SET_NAME,
+			&col.COLLATION_NAME,
+			&col.COLUMN_TYPE,
+			&col.COLUMN_KEY,
+			&col.EXTRA,
+			&col.PRIVILEGES,
+			&col.COLUMN_COMMENT,
+			&col.IS_GENERATED,
+			&col.GENERATION_EXPRESSION,
+		)
 		if err != nil {
 			log.Println(err.Error())
 			return nil
 		}
 
-		col.Field = col.ColumnName
-		col.ColumnName = parser.StringToHump(col.ColumnName)
-		col.GoaType = typeForMysqlToGo[col.MysqlType]
+		col.ColumnName = parser.StringToHump(col.COLUMN_NAME)
+		col.GoaType = typeForMysqlToGo[col.DATA_TYPE]
 
-		if _, ok := tableColumns[col.TableName]; !ok {
-			tableColumns[col.TableName] = []tableColumn{}
+		if _, ok := tableColumns[col.TABLE_NAME]; !ok {
+			tableColumns[col.TABLE_NAME] = []tableColumn{}
 		}
-		tableColumns[col.TableName] = append(tableColumns[col.TableName], col)
+		col.Index = tableIndex[col.TABLE_NAME][col.COLUMN_NAME]
+		tableColumns[col.TABLE_NAME] = append(tableColumns[col.TABLE_NAME], col)
 	}
+
 	return tableColumns
 }
 
+func (d *DB) tableIndex() map[string]map[string][]tableColumnIndex {
+	got := make(map[string]map[string][]tableColumnIndex, 0)
+	var sqlStr = `SELECT * FROM information_schema.statistics WHERE table_schema = DATABASE ();`
+	rows, err := d.db.Query(sqlStr)
+	if err != nil {
+		log.Println("Error reading table information: ", err.Error())
+		return nil
+	}
+	defer rows.Close()
+	columns, _ := rows.Columns()
+	length := len(columns)
+	for rows.Next() {
+		value := make([]interface{}, length)
+		columnPointers := make([]interface{}, length)
+		for i := 0; i < length; i++ {
+			columnPointers[i] = &value[i]
+		}
+		rows.Scan(columnPointers...)
+		data := make(map[string]string)
+		for i := 0; i < length; i++ {
+			columnName := columns[i]
+			columnValue := columnPointers[i].(*interface{})
+			if *columnValue != nil {
+				data[columnName] = string((*columnValue).([]byte))
+			}
+		}
+		tableIndex, ok := got[data["TABLE_NAME"]]
+		if !ok {
+			tableIndex = make(map[string][]tableColumnIndex)
+		}
+
+		if _, ok := tableIndex[data["COLUMN_NAME"]]; !ok {
+			tableIndex[data["COLUMN_NAME"]] = make([]tableColumnIndex, 0)
+		}
+
+		tableIndex[data["COLUMN_NAME"]] = append(tableIndex[data["COLUMN_NAME"]], tableColumnIndex{
+			COMMENT:     data["COMMENT"],
+			INDEX_NAME:  data["INDEX_NAME"],
+			CARDINALITY: data["CARDINALITY"],
+			INDEX_TYPE:  data["INDEX_TYPE"],
+			NON_UNIQUE:  data["NON_UNIQUE"],
+		})
+		got[data["TABLE_NAME"]] = tableIndex
+	}
+	return got
+}
+
 type tableColumn struct {
-	PrimaryKey    string
-	ColumnName    string
-	GoaType       string
-	MysqlType     string
-	Nullable      string
-	TableName     string
-	ColumnComment string
-	Field         string
+	// 驼峰命名的字段
+	ColumnName string
+	GoaType    string
+	mysql
+	Index []tableColumnIndex
+}
+
+type mysql struct {
+	TABLE_CATALOG            string
+	TABLE_SCHEMA             string
+	TABLE_NAME               string
+	COLUMN_NAME              string
+	ORDINAL_POSITION         string
+	COLUMN_DEFAULT           *string
+	IS_NULLABLE              *string
+	DATA_TYPE                string
+	CHARACTER_MAXIMUM_LENGTH *string
+	CHARACTER_OCTET_LENGTH   *string
+	NUMERIC_PRECISION        *string
+	NUMERIC_SCALE            *string
+	DATETIME_PRECISION       *string
+	CHARACTER_SET_NAME       *string
+	COLLATION_NAME           *string
+	COLUMN_TYPE              string
+	COLUMN_KEY               string
+	EXTRA                    string
+	PRIVILEGES               string
+	COLUMN_COMMENT           string
+	IS_GENERATED             string
+	GENERATION_EXPRESSION    *string
+}
+
+type tableColumnIndex struct {
+	COMMENT     string
+	INDEX_NAME  string
+	CARDINALITY string
+	INDEX_TYPE  string
+	NON_UNIQUE  string
 }
 
 var typeForMysqlToGo = map[string]string{
