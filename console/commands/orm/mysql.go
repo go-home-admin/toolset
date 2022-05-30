@@ -20,7 +20,9 @@ func IsExist(f string) bool {
 	return err == nil || os.IsExist(err)
 }
 
-func GenMysql(name string, conf map[interface{}]interface{}, out string) {
+type Conf map[interface{}]interface{}
+
+func GenMysql(name string, conf Conf, out string) {
 	if !IsExist(out) {
 		os.MkdirAll(out, 0766)
 	}
@@ -36,20 +38,21 @@ func GenMysql(name string, conf map[interface{}]interface{}, out string) {
 
 		str := "package " + name
 		str += "\nimport (" + imports[table] + "\n)"
-		str += "\n" + genOrmStruct(table, columns)
+		str += "\n" + genOrmStruct(table, columns, conf)
 
 		baseFunStr := baseMysqlFuncStr
-		for old, new := range map[string]string{
+		for old, newStr := range map[string]string{
 			"MysqlTableName": parser.StringToHump(table),
 			"{table_name}":   table,
 			"{db}":           name,
 		} {
-			baseFunStr = strings.ReplaceAll(baseFunStr, old, new)
+			baseFunStr = strings.ReplaceAll(baseFunStr, old, newStr)
 		}
 
 		str += baseFunStr
 		str += genFieldFunc(table, columns)
 		str += genListFunc(table, columns)
+		str += genWithFunc(table, columns, conf)
 		err := os.WriteFile(file+"_gen.go", []byte(str), 0766)
 		if err != nil {
 			log.Fatal(err)
@@ -76,6 +79,36 @@ func genListFunc(table string, columns []tableColumn) string {
 				"\n\t}" +
 				"\n\treturn got" +
 				"\n}"
+		}
+	}
+	return str
+}
+
+func genWithFunc(table string, columns []tableColumn, conf Conf) string {
+	TableName := parser.StringToHump(table)
+	str := ""
+	if helper, ok := conf["helper"]; ok {
+		helperConf := helper.(map[interface{}]interface{})
+		tableConfig, ok := helperConf[table].([]interface{})
+		if ok {
+			for _, c := range tableConfig {
+				cf := c.(map[interface{}]interface{})
+				with := cf["with"]
+				tbName := parser.StringToHump(cf["table"].(string))
+				switch with {
+				case "many2many":
+
+				default:
+					str += "\nfunc (orm *Orm" + TableName + ") Joins" + tbName + "(args ...interface{}) *Orm" + TableName + " {" +
+						"\n\torm.db.Joins(\"" + cf["alias"].(string) + "\", args...)" +
+						"\n\treturn orm" +
+						"\n}"
+					str += "\nfunc (orm *Orm" + TableName + ") Preload" + tbName + "(args ...interface{}) *Orm" + TableName + " {" +
+						"\n\torm.db.Preload(\"" + cf["alias"].(string) + "\", args...)" +
+						"\n\treturn orm" +
+						"\n}"
+				}
+			}
 		}
 	}
 	return str
@@ -200,18 +233,43 @@ func getImports(tableColumns map[string][]tableColumn) map[string]string {
 	return got
 }
 
-func genOrmStruct(table string, columns []tableColumn) string {
+func genOrmStruct(table string, columns []tableColumn, conf Conf) string {
 	TableName := parser.StringToHump(table)
 
+	hasField := make(map[string]bool)
 	str := `type {TableName} struct {`
 	for _, column := range columns {
 		p := ""
 		if *column.IS_NULLABLE == "YES" {
 			p = "*"
 		}
-		str += "\n\t" + parser.StringToHump(column.COLUMN_NAME) + " " + p + column.GoaType +
-			"`" + genGormTag(column) + "` // " +
-			strings.ReplaceAll(column.COLUMN_COMMENT, "\n", " ")
+		hasField[column.COLUMN_NAME] = true
+		fieldName := parser.StringToHump(column.COLUMN_NAME)
+		str += fmt.Sprintf("\n\t%v %v%v`%v` // %v", fieldName, p, column.GoaType, genGormTag(column), strings.ReplaceAll(column.COLUMN_COMMENT, "\n", " "))
+	}
+	// 表依赖
+	if helper, ok := conf["helper"]; ok {
+		helperConf := helper.(map[interface{}]interface{})
+		tableConfig, ok := helperConf[table].([]interface{})
+		if ok {
+			for _, c := range tableConfig {
+				cf := c.(map[interface{}]interface{})
+				with := cf["with"]
+				tbName := parser.StringToHump(cf["table"].(string))
+				switch with {
+				case "belongs_to":
+					str += fmt.Sprintf("\n\t%v %v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
+				case "has_one":
+					str += fmt.Sprintf("\n\t%v %v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
+				case "has_many":
+					str += fmt.Sprintf("\n\t%v []%v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
+				case "many2many":
+					str += fmt.Sprintf("\n\t%v []%v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
+				default:
+					panic("with: belongs_to,has_one,has_many,many2many")
+				}
+			}
+		}
 	}
 
 	str = strings.ReplaceAll(str, "{TableName}", TableName)
