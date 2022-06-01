@@ -350,7 +350,6 @@ func (d *DB) tableColumns() map[string][]tableColumn {
 	EXTRA,
 	PRIVILEGES,
 	COLUMN_COMMENT,
-	IS_GENERATED,
 	GENERATION_EXPRESSION
 FROM
 	information_schema.COLUMNS 
@@ -392,7 +391,6 @@ ORDER BY
 			&col.EXTRA,
 			&col.PRIVILEGES,
 			&col.COLUMN_COMMENT,
-			&col.IS_GENERATED,
 			&col.GENERATION_EXPRESSION,
 		)
 		if err != nil {
@@ -489,7 +487,6 @@ type mysql struct {
 	EXTRA                    string
 	PRIVILEGES               string
 	COLUMN_COMMENT           string
-	IS_GENERATED             string
 	GENERATION_EXPRESSION    *string
 }
 
