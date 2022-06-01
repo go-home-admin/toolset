@@ -8,6 +8,7 @@ import (
 	"os"
 	path2 "path"
 	"path/filepath"
+	"strings"
 )
 
 func DirIsExist(f string) bool {
@@ -199,26 +200,32 @@ func getWordsWitchFile(path string) GoWords {
 			case scannerStatus_quote:
 				work = work + str
 				stop = true
-				if str == "\"" && (!HasSuffix(work, "\\\"") || HasSuffix(work, "\\\\\"")) {
-					got.list = append(got.list, &word{
-						Str: work,
-						Ty:  wordT_word,
-					})
-					// 分割后从新开始
-					work = ""
-					status = scannerStatus_NewWork
+				if str == `"` {
+					checkWork := strings.ReplaceAll(work, `\\`, "")
+					if !HasSuffix(checkWork, `\"`) {
+						got.list = append(got.list, &word{
+							Str: work,
+							Ty:  wordT_word,
+						})
+						// 分割后从新开始
+						work = ""
+						status = scannerStatus_NewWork
+					}
 				}
 			case scannerStatus_quote2:
 				work = work + str
 				stop = true
-				if str == "'" && (!HasSuffix(work, "\\'") || HasSuffix(work, "\\\\'")) {
-					got.list = append(got.list, &word{
-						Str: work,
-						Ty:  wordT_word,
-					})
-					// 分割后从新开始
-					work = ""
-					status = scannerStatus_NewWork
+				if str == "'" {
+					checkWork := strings.ReplaceAll(work, `\\`, "")
+					if !HasSuffix(checkWork, `\'`) {
+						got.list = append(got.list, &word{
+							Str: work,
+							Ty:  wordT_word,
+						})
+						// 分割后从新开始
+						work = ""
+						status = scannerStatus_NewWork
+					}
 				}
 			case scannerStatus_quote3:
 				work = work + str
