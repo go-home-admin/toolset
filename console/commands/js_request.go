@@ -90,7 +90,10 @@ func (j *Js) Execute(input command.Input) {
 			tags[s] = true
 		}
 	}
-	str := ""
+	str := `
+import http from "@/utils/request";
+import config from "@/config";
+`
 	for _, url := range sortPathMap(swagger.Paths) {
 		paths := swagger.Paths[url]
 		methods := make([]makeJsCache, 0)
