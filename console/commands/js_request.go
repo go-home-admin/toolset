@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"github.com/ctfang/command"
 	"github.com/go-home-admin/toolset/console/commands/openapi"
+	"github.com/go-home-admin/toolset/parser"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"sort"
 	"strings"
 )
 
@@ -83,10 +86,13 @@ func (j *Js) Execute(input command.Input) {
 
 	tags := make(map[string]bool)
 	for _, s := range input.GetOptions("tags") {
-		tags[s] = true
+		if s != "" {
+			tags[s] = true
+		}
 	}
 	str := ""
-	for url, paths := range swagger.Paths {
+	for _, url := range sortPathMap(swagger.Paths) {
+		paths := swagger.Paths[url]
 		methods := make([]makeJsCache, 0)
 		methods = append(methods, makeJsCache{e: paths.Get, cm: canMakeJs(paths.Get, tags), method: "get"})
 		methods = append(methods, makeJsCache{e: paths.Put, cm: canMakeJs(paths.Put, tags), method: "put"})
@@ -95,11 +101,59 @@ func (j *Js) Execute(input command.Input) {
 		methods = append(methods, makeJsCache{e: paths.Delete, cm: canMakeJs(paths.Delete, tags), method: "delete"})
 		for _, method := range methods {
 			if method.cm {
-				str += fmt.Sprintf("")
+				str += fmt.Sprintf(`
+/**
+ * %v%v
+ * @returns {Promise<{code:Number,data:{},message:string}>}
+ * @constructor
+ */
+export async function %v%v(data) {
+	return await http.%v(config.API_URL + "%v", data);
+}
+`,
+					method.e.Description,
+					genJsRequest(method.e.Parameters),
+					parser.StringToHump(strings.Trim(strings.ReplaceAll(url, "/", "_"), "_")),
+					parser.StringToHump(method.method),
+					method.method,
+					url,
+				)
 			}
-			_ = url
 		}
 	}
+	fmt.Println(out)
+	os.WriteFile(out, []byte(str), 0766)
+}
+
+func sortPathMap(m map[string]*openapi.Path) []string {
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+	//按字典升序排列
+	sort.Strings(keys)
+	return keys
+}
+
+func genJsRequest(p openapi.Parameters) string {
+	if len(p) == 0 {
+		return ""
+	}
+	str := "\n * @param {{"
+	for i, parameter := range p {
+		t := "{}"
+		switch parameter.Type {
+		case "integer":
+			t = "Number"
+		case "string":
+			t = "string"
+		}
+		if i != 0 {
+			str += ","
+		}
+		str += fmt.Sprintf(`%v:%v`, parameter.Name, t)
+	}
+	return str + "}} data"
 }
 
 type makeJsCache struct {
@@ -110,13 +164,15 @@ type makeJsCache struct {
 
 func canMakeJs(e *openapi.Endpoint, tags map[string]bool) bool {
 	makeJs := false
-	if len(tags) == 0 {
-		makeJs = true
-	} else if e.Tags != nil {
-		for _, t := range e.Tags {
-			if tags[t] {
-				makeJs = true
-				break
+	if e != nil {
+		if len(tags) == 0 {
+			makeJs = true
+		} else {
+			for _, t := range e.Tags {
+				if tags[t] {
+					makeJs = true
+					break
+				}
 			}
 		}
 	}
