@@ -8,6 +8,7 @@ import (
 	"github.com/go-home-admin/toolset/parser"
 	"io/ioutil"
 	"os"
+	path2 "path"
 	"strconv"
 	"strings"
 )
@@ -29,7 +30,7 @@ func (SwaggerCommand) Configure() command.Configure {
 				{
 					Name:        "out_route",
 					Description: "生成文件到指定目录",
-					Default:     "@root/web",
+					Default:     "@root/web/swagger.json",
 				},
 			},
 		},
@@ -87,12 +88,11 @@ func (SwaggerCommand) Execute(input command.Input) {
 		}
 	}
 	by, _ := json.Marshal(swagger)
-	wpath := out + "/openapi_gen.json"
-	if !parser.DirIsExist(out) {
-		_ = os.MkdirAll(out, 0760)
+	if !parser.DirIsExist(path2.Dir(out)) {
+		_ = os.MkdirAll(path2.Dir(out), 0760)
 	}
-	_ = ioutil.WriteFile(wpath, by, 0766)
-	fmt.Println("gen openapi.json to " + wpath)
+	_ = ioutil.WriteFile(out, by, 0766)
+	fmt.Println("gen openapi.json to " + out)
 }
 func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser) {
 	for _, option := range service.Opt {
