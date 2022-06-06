@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ctfang/command"
 	"github.com/go-home-admin/toolset/console/commands/orm"
+	"github.com/go-home-admin/toolset/console/commands/pgorm"
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v2"
 	"os"
@@ -51,9 +52,9 @@ func (OrmCommand) Execute(input command.Input) {
 	fileContext = SetEnv(fileContext)
 	m := make(map[string]interface{})
 	err = yaml.Unmarshal(fileContext, &m)
-	if err != nil {
-		panic(err)
-	}
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	connections := m["connections"].(map[interface{}]interface{})
 	for s, confT := range connections {
@@ -63,8 +64,8 @@ func (OrmCommand) Execute(input command.Input) {
 		switch driver {
 		case "mysql":
 			orm.GenMysql(s.(string), conf, out)
-		case "postgresql":
-
+		case "pgsql":
+			pgorm.GenSql(s.(string), conf, out)
 		}
 
 		cmd := exec.Command("go", []string{"fmt", out}...)

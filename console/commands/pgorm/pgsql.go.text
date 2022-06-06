@@ -1,0 +1,223 @@
+
+func (receiver *{orm_table_name}) TableName() string {
+	return "{table_name}"
+}
+
+type Orm{orm_table_name} struct {
+	db *gorm.DB
+}
+
+func NewOrm{orm_table_name}() *Orm{orm_table_name} {
+	orm := &Orm{orm_table_name}{}
+	orm.db = providers.NewMysqlProvider().GetBean("{db}").(*gorm.DB)
+	return orm
+}
+
+func (orm *Orm{orm_table_name}) GetDB() *gorm.DB {
+	return orm.db
+}
+
+// Create insert the value into database
+func (orm *Orm{orm_table_name}) Create(value interface{}) *gorm.DB {
+	return orm.db.Create(value)
+}
+
+// CreateInBatches insert the value in batches into database
+func (orm *Orm{orm_table_name}) CreateInBatches(value interface{}, batchSize int) *gorm.DB {
+	return orm.db.CreateInBatches(value, batchSize)
+}
+
+// Save update value in database, if the value doesn't have primary key, will insert it
+func (orm *Orm{orm_table_name}) Save(value interface{}) *gorm.DB {
+	return orm.db.Save(value)
+}
+
+func (orm *Orm{orm_table_name}) Row() *sql.Row {
+	return orm.db.Row()
+}
+
+func (orm *Orm{orm_table_name}) Rows() (*sql.Rows, error) {
+	return orm.db.Rows()
+}
+
+// Scan scan value to a struct
+func (orm *Orm{orm_table_name}) Scan(dest interface{}) *gorm.DB {
+	return orm.db.Scan(dest)
+}
+
+func (orm *Orm{orm_table_name}) ScanRows(rows *sql.Rows, dest interface{}) error {
+	return orm.db.ScanRows(rows, dest)
+}
+
+// Connection  use a db conn to execute Multiple commands,this conn will put conn pool after it is executed.
+func (orm *Orm{orm_table_name}) Connection(fc func(tx *gorm.DB) error) (err error) {
+	return orm.db.Connection(fc)
+}
+
+// Transaction start a transaction as a block, return error will rollback, otherwise to commit.
+func (orm *Orm{orm_table_name}) Transaction(fc func(tx *gorm.DB) error, opts ...*sql.TxOptions) (err error) {
+	return orm.db.Transaction(fc, opts...)
+}
+
+// Begin begins a transaction
+func (orm *Orm{orm_table_name}) Begin(opts ...*sql.TxOptions) *gorm.DB {
+	return orm.db.Begin(opts...)
+}
+
+// Commit commit a transaction
+func (orm *Orm{orm_table_name}) Commit() *gorm.DB {
+	return orm.db.Commit()
+}
+
+// Rollback rollback a transaction
+func (orm *Orm{orm_table_name}) Rollback() *gorm.DB {
+	return orm.db.Rollback()
+}
+
+func (orm *Orm{orm_table_name}) SavePoint(name string) *gorm.DB {
+	return orm.db.SavePoint(name)
+}
+
+func (orm *Orm{orm_table_name}) RollbackTo(name string) *gorm.DB {
+	return orm.db.RollbackTo(name)
+}
+
+// Exec execute raw sql
+func (orm *Orm{orm_table_name}) Exec(sql string, values ...interface{}) *gorm.DB {
+	return orm.db.Exec(sql, values...)
+}
+
+// ------------ 以下是单表独有的函数, 便捷字段条件, Laravel风格操作 ---------
+
+func (orm *Orm{orm_table_name}) Insert(row *{orm_table_name}) *gorm.DB {
+	return orm.db.Create(row)
+}
+
+func (orm *Orm{orm_table_name}) Inserts(rows []*{orm_table_name}) *gorm.DB {
+	return orm.db.Create(rows)
+}
+
+func (orm *Orm{orm_table_name}) Order(value interface{}) *Orm{orm_table_name} {
+	orm.db.Order(value)
+	return orm
+}
+
+func (orm *Orm{orm_table_name}) Limit(limit int) *Orm{orm_table_name} {
+	orm.db.Limit(limit)
+	return orm
+}
+
+func (orm *Orm{orm_table_name}) Offset(offset int) *Orm{orm_table_name} {
+	orm.db.Offset(offset)
+	return orm
+}
+// 直接查询列表, 如果需要条数, 使用Find()
+func (orm *Orm{orm_table_name}) Get() {orm_table_name}List {
+	got, _ := orm.Find()
+	return got
+}
+
+// Pluck used to query single column from a model as a map
+//     var ages []int64
+//     db.Model(&users).Pluck("age", &ages)
+func (orm *Orm{orm_table_name}) Pluck(column string, dest interface{}) *gorm.DB {
+	return orm.db.Model(&{orm_table_name}{}).Pluck(column, dest)
+}
+
+// Delete 有条件删除
+func (orm *Orm{orm_table_name}) Delete(conds ...interface{}) *gorm.DB {
+	return orm.db.Delete(&{orm_table_name}{}, conds...)
+}
+
+// DeleteAll 删除所有
+func (orm *Orm{orm_table_name}) DeleteAll() *gorm.DB {
+	return orm.db.Exec("DELETE FROM {table_name}")
+}
+
+func (orm *Orm{orm_table_name}) Count() int64 {
+	var count int64
+	orm.db.Model(&{orm_table_name}{}).Count(&count)
+	return count
+}
+
+// First 检索单个对象
+func (orm *Orm{orm_table_name}) First(conds ...interface{}) (*{orm_table_name}, bool) {
+	dest := &{orm_table_name}{}
+	db := orm.db.Limit(1).Find(dest, conds...)
+	return dest, db.RowsAffected == 1
+}
+
+// Take return a record that match given conditions, the order will depend on the database implementation
+func (orm *Orm{orm_table_name}) Take(conds ...interface{}) (*{orm_table_name}, int64) {
+	dest := &{orm_table_name}{}
+	db := orm.db.Take(dest, conds...)
+	return dest, db.RowsAffected
+}
+
+// Last find last record that match given conditions, order by primary key
+func (orm *Orm{orm_table_name}) Last(conds ...interface{}) (*{orm_table_name}, int64) {
+	dest := &{orm_table_name}{}
+	db := orm.db.Last(dest, conds...)
+	return dest, db.RowsAffected
+}
+
+func (orm *Orm{orm_table_name}) Find(conds ...interface{}) ({orm_table_name}List, int64) {
+	list := make([]*{orm_table_name}, 0)
+	tx := orm.db.Model(&{orm_table_name}{}).Find(&list, conds...)
+	if tx.Error != nil {
+		logrus.Error(tx.Error)
+	}
+	return list, tx.RowsAffected
+}
+
+// FindInBatches find records in batches
+func (orm *Orm{orm_table_name}) FindInBatches(dest interface{}, batchSize int, fc func(tx *gorm.DB, batch int) error) *gorm.DB {
+	return orm.db.FindInBatches(dest, batchSize, fc)
+}
+
+// FirstOrInit gets the first matched record or initialize a new instance with given conditions (only works with struct or map conditions)
+func (orm *Orm{orm_table_name}) FirstOrInit(dest *{orm_table_name}, conds ...interface{}) (*{orm_table_name}, *gorm.DB) {
+	return dest, orm.db.FirstOrInit(dest, conds...)
+}
+
+// FirstOrCreate gets the first matched record or create a new one with given conditions (only works with struct, map conditions)
+func (orm *Orm{orm_table_name}) FirstOrCreate(dest interface{}, conds ...interface{}) *gorm.DB {
+	return orm.db.FirstOrCreate(dest, conds...)
+}
+
+// Update update attributes with callbacks, refer: https://gorm.io/docs/update.html#Update-Changed-Fields
+func (orm *Orm{orm_table_name}) Update(column string, value interface{}) *gorm.DB {
+	return orm.db.Model(&{orm_table_name}{}).Update(column, value)
+}
+
+// Updates update attributes with callbacks, refer: https://gorm.io/docs/update.html#Update-Changed-Fields
+func (orm *Orm{orm_table_name}) Updates(values interface{}) *gorm.DB {
+	return orm.db.Model(&{orm_table_name}{}).Updates(values)
+}
+
+func (orm *Orm{orm_table_name}) UpdateColumn(column string, value interface{}) *gorm.DB {
+	return orm.db.Model(&{orm_table_name}{}).UpdateColumn(column, value)
+}
+
+func (orm *Orm{orm_table_name}) UpdateColumns(values interface{}) *gorm.DB {
+	return orm.db.Model(&{orm_table_name}{}).UpdateColumns(values)
+}
+
+func (orm *Orm{orm_table_name}) Where(query interface{}, args ...interface{}) *Orm{orm_table_name} {
+	orm.db.Where(query, args...)
+	return orm
+}
+
+func (orm *Orm{orm_table_name}) And(fuc func(orm *Orm{orm_table_name})) *Orm{orm_table_name} {
+	ormAnd := NewOrm{orm_table_name}()
+	fuc(ormAnd)
+	orm.db.Where(ormAnd.db)
+	return orm
+}
+
+func (orm *Orm{orm_table_name}) Or(fuc func(orm *Orm{orm_table_name})) *Orm{orm_table_name} {
+	ormOr := NewOrm{orm_table_name}()
+	fuc(ormOr)
+	orm.db.Or(ormOr.db)
+	return orm
+}
