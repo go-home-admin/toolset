@@ -222,7 +222,7 @@ func getImports(tableColumns map[string][]tableColumn) map[string]string {
 		}
 		for _, column := range columns {
 			index := strings.Index(column.GoType, ".")
-			if index != -1 {
+			if index != -1 && column.GoType[:index] != "gorm" {
 				as := strings.Replace(column.GoType[:index], "*", "", 1)
 				importStr := alias[as]
 				tm[importStr] = as
