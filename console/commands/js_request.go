@@ -90,8 +90,7 @@ func (j *Js) Execute(input command.Input) {
 			tags[s] = true
 		}
 	}
-	str := `
-import http from "@/utils/request";
+	str := `import http from "@/utils/request";
 import config from "@/config";
 `
 	for _, url := range sortPathMap(swagger.Paths) {
