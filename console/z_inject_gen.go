@@ -2,7 +2,7 @@
 package console
 
 import (
-	app "github.com/go-home-admin/home/bootstrap/services/app"
+	providers "github.com/go-home-admin/home/bootstrap/providers"
 )
 
 var _KernelSingle *Kernel
@@ -16,7 +16,7 @@ func GetAllProvider() []interface{} {
 func NewKernel() *Kernel {
 	if _KernelSingle == nil {
 		_KernelSingle = &Kernel{}
-		app.AfterProvider(_KernelSingle, "")
+		providers.AfterProvider(_KernelSingle, "")
 	}
 	return _KernelSingle
 }

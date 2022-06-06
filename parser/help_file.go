@@ -148,7 +148,6 @@ func getWordsWitchFile(path string) GoWords {
 	file, err := os.Open(path)
 	if err != nil {
 		panic(err)
-		return got
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)

@@ -253,7 +253,7 @@ func genImportAlias(m map[string]string) map[string]string {
 	return importMapAlias
 }
 
-// m = import => alias
+// cm = import => alias
 func getImportStr(bc beanCache, m map[string]string) string {
 	has := map[string]bool{
 		"github.com/go-home-admin/home/bootstrap/providers": true,
