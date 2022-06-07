@@ -9,7 +9,7 @@ type Orm{orm_table_name} struct {
 
 func NewOrm{orm_table_name}() *Orm{orm_table_name} {
 	orm := &Orm{orm_table_name}{}
-	orm.db = providers.NewMysqlProvider().GetBean("{db}").(*gorm.DB)
+	orm.db = providers.NewMysqlProvider().GetBean("{db}").(*gorm.DB).Model(&MysqlTableName{}).Model(&{orm_table_name}{})
 	return orm
 }
 
@@ -121,7 +121,7 @@ func (orm *Orm{orm_table_name}) Get() {orm_table_name}List {
 //     var ages []int64
 //     db.Model(&users).Pluck("age", &ages)
 func (orm *Orm{orm_table_name}) Pluck(column string, dest interface{}) *gorm.DB {
-	return orm.db.Model(&{orm_table_name}{}).Pluck(column, dest)
+	return orm.db.Pluck(column, dest)
 }
 
 // Delete 有条件删除
@@ -136,7 +136,7 @@ func (orm *Orm{orm_table_name}) DeleteAll() *gorm.DB {
 
 func (orm *Orm{orm_table_name}) Count() int64 {
 	var count int64
-	orm.db.Model(&{orm_table_name}{}).Count(&count)
+	orm.db.Count(&count)
 	return count
 }
 
@@ -163,7 +163,7 @@ func (orm *Orm{orm_table_name}) Last(conds ...interface{}) (*{orm_table_name}, i
 
 func (orm *Orm{orm_table_name}) Find(conds ...interface{}) ({orm_table_name}List, int64) {
 	list := make([]*{orm_table_name}, 0)
-	tx := orm.db.Model(&{orm_table_name}{}).Find(&list, conds...)
+	tx := orm.db.Find(&list, conds...)
 	if tx.Error != nil {
 		logrus.Error(tx.Error)
 	}
@@ -187,20 +187,20 @@ func (orm *Orm{orm_table_name}) FirstOrCreate(dest interface{}, conds ...interfa
 
 // Update update attributes with callbacks, refer: https://gorm.io/docs/update.html#Update-Changed-Fields
 func (orm *Orm{orm_table_name}) Update(column string, value interface{}) *gorm.DB {
-	return orm.db.Model(&{orm_table_name}{}).Update(column, value)
+	return orm.db.Update(column, value)
 }
 
 // Updates update attributes with callbacks, refer: https://gorm.io/docs/update.html#Update-Changed-Fields
 func (orm *Orm{orm_table_name}) Updates(values interface{}) *gorm.DB {
-	return orm.db.Model(&{orm_table_name}{}).Updates(values)
+	return orm.db.Updates(values)
 }
 
 func (orm *Orm{orm_table_name}) UpdateColumn(column string, value interface{}) *gorm.DB {
-	return orm.db.Model(&{orm_table_name}{}).UpdateColumn(column, value)
+	return orm.db.UpdateColumn(column, value)
 }
 
 func (orm *Orm{orm_table_name}) UpdateColumns(values interface{}) *gorm.DB {
-	return orm.db.Model(&{orm_table_name}{}).UpdateColumns(values)
+	return orm.db.UpdateColumns(values)
 }
 
 func (orm *Orm{orm_table_name}) Where(query interface{}, args ...interface{}) *Orm{orm_table_name} {

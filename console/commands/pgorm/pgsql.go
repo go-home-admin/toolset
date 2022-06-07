@@ -259,9 +259,9 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf) string {
 				tbName := parser.StringToHump(cf["table"].(string))
 				switch with {
 				case "belongs_to":
-					str += fmt.Sprintf("\n\t%v %v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
+					str += fmt.Sprintf("\n\t%v *%v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
 				case "has_one":
-					str += fmt.Sprintf("\n\t%v %v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
+					str += fmt.Sprintf("\n\t%v *%v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
 				case "has_many":
 					str += fmt.Sprintf("\n\t%v []%v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
 				case "many2many":
