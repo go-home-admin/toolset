@@ -9,7 +9,7 @@ type OrmMysqlTableName struct {
 
 func NewOrmMysqlTableName() *OrmMysqlTableName {
 	orm := &OrmMysqlTableName{}
-	orm.db = providers.NewMysqlProvider().GetBean("{db}").(*gorm.DB)
+	orm.db = providers.NewMysqlProvider().GetBean("{db}").(*gorm.DB).Model(&MysqlTableName{})
 	return orm
 }
 
@@ -121,7 +121,7 @@ func (orm *OrmMysqlTableName) Get() MysqlTableNameList {
 //     var ages []int64
 //     db.Model(&users).Pluck("age", &ages)
 func (orm *OrmMysqlTableName) Pluck(column string, dest interface{}) *gorm.DB {
-	return orm.db.Model(&MysqlTableName{}).Pluck(column, dest)
+	return orm.db.Pluck(column, dest)
 }
 
 // Delete 有条件删除
@@ -136,7 +136,7 @@ func (orm *OrmMysqlTableName) DeleteAll() *gorm.DB {
 
 func (orm *OrmMysqlTableName) Count() int64 {
 	var count int64
-	orm.db.Model(&MysqlTableName{}).Count(&count)
+	orm.db.Count(&count)
 	return count
 }
 
@@ -163,7 +163,7 @@ func (orm *OrmMysqlTableName) Last(conds ...interface{}) (*MysqlTableName, int64
 
 func (orm *OrmMysqlTableName) Find(conds ...interface{}) (MysqlTableNameList, int64) {
 	list := make([]*MysqlTableName, 0)
-	tx := orm.db.Model(&MysqlTableName{}).Find(&list, conds...)
+	tx := orm.db.Find(&list, conds...)
 	if tx.Error != nil {
 		logrus.Error(tx.Error)
 	}
@@ -187,20 +187,20 @@ func (orm *OrmMysqlTableName) FirstOrCreate(dest interface{}, conds ...interface
 
 // Update update attributes with callbacks, refer: https://gorm.io/docs/update.html#Update-Changed-Fields
 func (orm *OrmMysqlTableName) Update(column string, value interface{}) *gorm.DB {
-	return orm.db.Model(&MysqlTableName{}).Update(column, value)
+	return orm.db.Update(column, value)
 }
 
 // Updates update attributes with callbacks, refer: https://gorm.io/docs/update.html#Update-Changed-Fields
 func (orm *OrmMysqlTableName) Updates(values interface{}) *gorm.DB {
-	return orm.db.Model(&MysqlTableName{}).Updates(values)
+	return orm.db.Updates(values)
 }
 
 func (orm *OrmMysqlTableName) UpdateColumn(column string, value interface{}) *gorm.DB {
-	return orm.db.Model(&MysqlTableName{}).UpdateColumn(column, value)
+	return orm.db.UpdateColumn(column, value)
 }
 
 func (orm *OrmMysqlTableName) UpdateColumns(values interface{}) *gorm.DB {
-	return orm.db.Model(&MysqlTableName{}).UpdateColumns(values)
+	return orm.db.UpdateColumns(values)
 }
 
 func (orm *OrmMysqlTableName) Where(query interface{}, args ...interface{}) *OrmMysqlTableName {
