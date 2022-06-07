@@ -1,9 +1,14 @@
 package commands
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ctfang/command"
 	"github.com/go-home-admin/toolset/app/entity/mysql"
+	"github.com/go-home-admin/toolset/console/commands/orm"
+	"github.com/go-home-admin/toolset/console/commands/pgorm"
+	"github.com/go-home-admin/toolset/parser"
+	"gopkg.in/yaml.v2"
 	"log"
 	"os"
 	"reflect"
@@ -14,23 +19,35 @@ import (
 // CurdCommand @Bean
 type CurdCommand struct{}
 
+type TableColumn struct {
+	Name   string
+	GoType string
+}
+
 func (CurdCommand) Configure() command.Configure {
 	return command.Configure{
 		Name:        "make:curd",
 		Description: "生成curd基础代码, 默认使用交互输入, 便捷调用 ",
 		Input: command.Argument{
-			Option: []command.ArgParam{
+			Argument: []command.ArgParam{
 				{
-					Name:        "go_out",
-					Description: "生成文件到指定目录",
+					Name:        "conn_name",
+					Description: "连接名",
 				},
 				{
 					Name:        "table_name",
 					Description: "表名",
 				},
+			},
+			Option: []command.ArgParam{
 				{
-					Name:        "db_name",
-					Description: "数据库类型",
+					Name:        "config",
+					Description: "配置文件",
+					Default:     "@root/config/database.yaml",
+				},
+				{
+					Name:        "go_out",
+					Description: "生成文件到指定目录",
 				},
 				{
 					Name:        "explain",
@@ -43,11 +60,28 @@ func (CurdCommand) Configure() command.Configure {
 
 func (CurdCommand) Execute(input command.Input) {
 	root := getRootPath()
-	tableName := input.GetOption("table_name")
+	configFile := input.GetOption("config")
+	configFile = strings.Replace(configFile, "@root", root, 1)
+	configContext, _ := os.ReadFile(configFile)
+	configContext = SetEnv(configContext)
+	m := make(map[string]interface{})
+	err := yaml.Unmarshal(configContext, &m)
+	if err != nil {
+		panic(err)
+	}
+	connections := m["connections"].(map[interface{}]interface{})
+	connName := input.GetArgument("conn_name")
+	if _, ok := connections[connName]; !ok {
+		panic("没有找不到对应数据库连接")
+	}
+	tableName := input.GetArgument("table_name")
 	if tableName == "" {
 		log.Printf("请输入表名")
 		return
 	}
+	config := connections[connName].(map[interface{}]interface{})
+	TableColumns := GetTableColumn(config, tableName)
+
 	out := input.GetOption("go_out")
 	if out == "" {
 		log.Printf("请输入保存到目录地址")
@@ -335,4 +369,44 @@ func buildProto(input command.Input, protoUrl string, module string, contName st
 		log.Printf(err.Error())
 		return
 	}
+}
+
+func GetTableColumn(config map[interface{}]interface{}, tableName string) []TableColumn {
+	rows := &sql.Rows{}
+	switch config["driver"] {
+	case "mysql":
+		rows, _ = orm.NewDb(config).GetDB().Query(`
+SELECT COLUMN_NAME, DATA_TYPE,
+FROM information_schema.COLUMNS 
+WHERE table_schema = DATABASE () AND table_name = $1
+ORDER BY ORDINAL_POSITION ASC`, tableName)
+	case "pgsql":
+		rows, _ = pgorm.NewDb(config).GetDB().Query(`
+SELECT column_name, udt_name
+FROM information_schema.columns
+WHERE table_schema = 'public' and table_name = $1
+`, tableName)
+	default:
+		panic("没有[" + config["driver"].(string) + "]的驱动")
+	}
+	defer rows.Close()
+	var tableColumns []TableColumn
+	for rows.Next() {
+		var name, dataType string
+		_ = rows.Scan(
+			&name,
+			&dataType,
+		)
+		switch config["driver"] {
+		case "mysql":
+			dataType = orm.TypeForMysqlToGo[dataType]
+		case "pgsql":
+			dataType = pgorm.PgTypeToGoType(dataType, name)
+		}
+		tableColumns = append(tableColumns, TableColumn{
+			Name:   parser.StringToHump(name),
+			GoType: dataType,
+		})
+	}
+	return tableColumns
 }

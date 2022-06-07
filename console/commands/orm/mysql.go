@@ -336,6 +336,10 @@ type DB struct {
 	db *sql.DB
 }
 
+func (d *DB) GetDB() *sql.DB {
+	return d.db
+}
+
 func (d *DB) tableColumns() map[string][]tableColumn {
 	var sqlStr = `SELECT
 	TABLE_CATALOG,
