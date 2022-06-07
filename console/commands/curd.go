@@ -20,8 +20,9 @@ import (
 type CurdCommand struct{}
 
 type TableColumn struct {
-	Name   string
-	GoType string
+	Name    string
+	GoType  string
+	Comment string
 }
 
 func (CurdCommand) Configure() command.Configure {
@@ -376,15 +377,17 @@ func GetTableColumn(config map[interface{}]interface{}, tableName string) []Tabl
 	switch config["driver"] {
 	case "mysql":
 		rows, _ = orm.NewDb(config).GetDB().Query(`
-SELECT COLUMN_NAME, DATA_TYPE,
+SELECT COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT
 FROM information_schema.COLUMNS 
 WHERE table_schema = DATABASE () AND table_name = $1
 ORDER BY ORDINAL_POSITION ASC`, tableName)
 	case "pgsql":
 		rows, _ = pgorm.NewDb(config).GetDB().Query(`
-SELECT column_name, udt_name
-FROM information_schema.columns
-WHERE table_schema = 'public' and table_name = $1
+SELECT i.column_name, i.udt_name, col_description(a.attrelid,a.attnum) as comment
+FROM information_schema.columns as i 
+LEFT JOIN pg_class as c on c.relname = i.table_name
+LEFT JOIN pg_attribute as a on a.attrelid = c.oid and a.attname = i.column_name
+WHERE table_schema = 'public' and i.table_name = $1;
 `, tableName)
 	default:
 		panic("没有[" + config["driver"].(string) + "]的驱动")
@@ -392,11 +395,18 @@ WHERE table_schema = 'public' and table_name = $1
 	defer rows.Close()
 	var tableColumns []TableColumn
 	for rows.Next() {
-		var name, dataType string
+		var name, dataType, comment string
+		var _comment *string
 		_ = rows.Scan(
 			&name,
 			&dataType,
+			&_comment,
 		)
+		if _comment == nil {
+			comment = ""
+		} else {
+			comment = *_comment
+		}
 		switch config["driver"] {
 		case "mysql":
 			dataType = orm.TypeForMysqlToGo[dataType]
@@ -404,8 +414,9 @@ WHERE table_schema = 'public' and table_name = $1
 			dataType = pgorm.PgTypeToGoType(dataType, name)
 		}
 		tableColumns = append(tableColumns, TableColumn{
-			Name:   parser.StringToHump(name),
-			GoType: dataType,
+			Name:    parser.StringToHump(name),
+			GoType:  dataType,
+			Comment: comment,
 		})
 	}
 	return tableColumns
