@@ -534,7 +534,7 @@ var typeForMysqlToGo = map[string]string{
 	"decimal":            "float64",
 	"binary":             "string",
 	"varbinary":          "string",
-	"json":               "database.Json",
+	"json":               "database.JSON",
 }
 
 func NewDb(conf map[interface{}]interface{}) *DB {
