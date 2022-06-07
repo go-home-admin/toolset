@@ -4,16 +4,14 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/ctfang/command"
-	"github.com/go-home-admin/toolset/app/entity/mysql"
 	"github.com/go-home-admin/toolset/console/commands/orm"
 	"github.com/go-home-admin/toolset/console/commands/pgorm"
 	"github.com/go-home-admin/toolset/parser"
 	"gopkg.in/yaml.v2"
 	"log"
 	"os"
-	"reflect"
+	"strconv"
 	"strings"
-	_ "strings"
 )
 
 // CurdCommand @Bean
@@ -61,19 +59,21 @@ func (CurdCommand) Configure() command.Configure {
 
 func (CurdCommand) Execute(input command.Input) {
 	root := getRootPath()
-	configFile := input.GetOption("config")
-	configFile = strings.Replace(configFile, "@root", root, 1)
-	configContext, _ := os.ReadFile(configFile)
-	configContext = SetEnv(configContext)
+	file := input.GetOption("config")
+	file = strings.Replace(file, "@root", root, 1)
+	fileContext, _ := os.ReadFile(file)
+	fileContext = SetEnv(fileContext)
 	m := make(map[string]interface{})
-	err := yaml.Unmarshal(configContext, &m)
+	err := yaml.Unmarshal(fileContext, &m)
 	if err != nil {
-		panic(err)
+		log.Printf("配置解析错误:%v", err)
+		return
 	}
 	connections := m["connections"].(map[interface{}]interface{})
 	connName := input.GetArgument("conn_name")
 	if _, ok := connections[connName]; !ok {
-		panic("没有找不到对应数据库连接")
+		log.Printf("没有找不到对应数据库连接")
+		return
 	}
 	tableName := input.GetArgument("table_name")
 	if tableName == "" {
@@ -82,14 +82,13 @@ func (CurdCommand) Execute(input command.Input) {
 	}
 	config := connections[connName].(map[interface{}]interface{})
 	TableColumns := GetTableColumn(config, tableName)
-
 	out := input.GetOption("go_out")
 	if out == "" {
 		log.Printf("请输入保存到目录地址")
 		return
 	}
 	outUrl := root + "/app/http/admin/" + out + "/" + tableName
-	_, err := os.Stat(outUrl)
+	_, err = os.Stat(outUrl)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(outUrl, 0766)
 		if err != nil {
@@ -114,13 +113,6 @@ func (CurdCommand) Execute(input command.Input) {
 	} else {
 		contName = strings.ToUpper(tableName)
 	}
-	// 获取表结构
-	var tb mysql.ActionLogs
-	tableColumn := reflect.TypeOf(tb)
-	for i := 0; i < tableColumn.NumField(); i++ {
-		fmt.Printf("name: %v \n", tableColumn.Field(i).Name)
-		fmt.Printf("key: %v \n\n", tableColumn.Field(i).Type)
-	}
 	module := getModModule()
 	//controller
 	buildController(input, outUrl, module, contName)
@@ -133,7 +125,7 @@ func (CurdCommand) Execute(input command.Input) {
 	//put
 	buildPut(input, outUrl, module, "put", contName)
 	//proto
-	buildProto(input, protoUrl, module, contName)
+	buildProto(input, protoUrl, module, contName, TableColumns)
 }
 
 func buildController(input command.Input, outUrl string, module string, contName string) {
@@ -308,7 +300,7 @@ func (receiver *Controller) GinHandle%v(ctx *gin.Context) {
 	return str
 }
 
-func buildProto(input command.Input, protoUrl string, module string, contName string) {
+func buildProto(input command.Input, protoUrl string, module string, contName string, column []TableColumn) {
 	cont := protoUrl + "/" + input.GetOption("table_name") + ".proto"
 	str := "// @Tag(\"form\");"
 	str += "\nsyntax = \"proto3\";"
@@ -349,7 +341,6 @@ func buildProto(input command.Input, protoUrl string, module string, contName st
 	str += "\n  uint32 total = 2;"
 	str += "\n}"
 	str += "\nmessage " + contName + "PostRequest {"
-	str += "\n"
 	str += "\n}"
 	str += "\nmessage " + contName + "PostResponse {"
 	str += "\n  // 提示语"
@@ -357,13 +348,17 @@ func buildProto(input command.Input, protoUrl string, module string, contName st
 	str += "\n}"
 	str += "\nmessage " + contName + "PutRequest {"
 	str += "\n"
+	str += "\n"
 	str += "\n}"
 	str += "\nmessage " + contName + "PutResponse {"
 	str += "\n  // 提示语"
 	str += "\n  string tip = 1;"
 	str += "\n}"
 	str += "\nmessage " + contName + "Info{"
-	str += "\n"
+	for i, v := range column {
+		str += "\n    // " + v.Comment
+		str += "\n    " + v.GoType + " " + v.Name + " = " + strconv.Itoa(i) + ";"
+	}
 	str += "\n}"
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
