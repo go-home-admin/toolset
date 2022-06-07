@@ -374,10 +374,11 @@ func GetTableColumn(config map[interface{}]interface{}, tableName string) []Tabl
 		rows, _ = orm.NewDb(config).GetDB().Query(`
 SELECT COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT
 FROM information_schema.COLUMNS 
-WHERE table_schema = DATABASE () AND table_name = $1
+WHERE table_schema = DATABASE () AND table_name = ?
 ORDER BY ORDINAL_POSITION ASC`, tableName)
 	case "pgsql":
-		rows, _ = pgorm.NewDb(config).GetDB().Query(`
+		db := pgorm.NewDb(config)
+		rows, _ = db.GetDB().Query(`
 SELECT i.column_name, i.udt_name, col_description(a.attrelid,a.attnum) as comment
 FROM information_schema.columns as i 
 LEFT JOIN pg_class as c on c.relname = i.table_name

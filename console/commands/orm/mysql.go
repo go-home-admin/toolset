@@ -552,7 +552,7 @@ var typeForMysqlToGo = map[string]string{
 func NewDb(conf map[interface{}]interface{}) *DB {
 	config := services.NewConfig(conf)
 	db, err := sql.Open("mysql", fmt.Sprintf(
-		"%s:%s@tcp(%s)/%s",
+		"%s:%s@tcp(%s)/%s?interpolateParams=true",
 		config.GetString("username", "root"),
 		config.GetString("password", "123456"),
 		config.GetString("host", "localhost:"+config.GetString("port", "3306")),
