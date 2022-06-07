@@ -216,6 +216,7 @@ func protoService(l []*word, offset int) (Service, int) {
 				val, offset = protoRpc(nl, offset)
 				val.Doc = strings.ReplaceAll(doc, "//", "")
 				got.Rpc[val.Name] = val
+				doc = ""
 			}
 		}
 	}
