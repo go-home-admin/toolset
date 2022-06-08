@@ -7,6 +7,7 @@ import (
 	"github.com/go-home-admin/toolset/console/commands/orm"
 	"github.com/go-home-admin/toolset/console/commands/pgorm"
 	"github.com/go-home-admin/toolset/parser"
+	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v2"
 	"log"
 	"os"
@@ -59,12 +60,16 @@ func (CurdCommand) Configure() command.Configure {
 
 func (CurdCommand) Execute(input command.Input) {
 	root := getRootPath()
+	err := godotenv.Load(root + "/.env")
+	if err != nil {
+		fmt.Println(root + "/.env" + "文件不存在, 无法加载环境变量")
+	}
 	file := input.GetOption("config")
 	file = strings.Replace(file, "@root", root, 1)
 	fileContext, _ := os.ReadFile(file)
 	fileContext = SetEnv(fileContext)
 	m := make(map[string]interface{})
-	err := yaml.Unmarshal(fileContext, &m)
+	err = yaml.Unmarshal(fileContext, &m)
 	if err != nil {
 		log.Printf("配置解析错误:%v", err)
 		return
@@ -369,16 +374,17 @@ func buildProto(input command.Input, protoUrl string, module string, contName st
 
 func GetTableColumn(config map[interface{}]interface{}, tableName string) []TableColumn {
 	rows := &sql.Rows{}
+	var err error
 	switch config["driver"] {
 	case "mysql":
-		rows, _ = orm.NewDb(config).GetDB().Query(`
+		rows, err = orm.NewDb(config).GetDB().Query(`
 SELECT COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT
 FROM information_schema.COLUMNS 
 WHERE table_schema = DATABASE () AND table_name = ?
 ORDER BY ORDINAL_POSITION ASC`, tableName)
 	case "pgsql":
 		db := pgorm.NewDb(config)
-		rows, _ = db.GetDB().Query(`
+		rows, err = db.GetDB().Query(`
 SELECT i.column_name, i.udt_name, col_description(a.attrelid,a.attnum) as comment
 FROM information_schema.columns as i 
 LEFT JOIN pg_class as c on c.relname = i.table_name
@@ -389,6 +395,9 @@ WHERE table_schema = 'public' and i.table_name = $1;
 		panic("没有[" + config["driver"].(string) + "]的驱动")
 	}
 	defer rows.Close()
+	if err != nil {
+		panic("数据库连接失败或没有找到对应的表")
+	}
 	var tableColumns []TableColumn
 	for rows.Next() {
 		var name, dataType, comment string

@@ -90,13 +90,14 @@ func SetEnv(fileContext []byte) []byte {
 			}
 			nS := arr2[1]
 			st, et := GetBrackets(nS, '"', '"')
-			key := nS[st : et+1]
+			key := strings.Trim(nS[st:et+1], "\"")
 			nS = nS[et+1:]
 			st, et = GetBrackets(nS, '"', '"')
-			val := nS[st : et+1]
-			key = strings.Trim(key, "\"")
-			val = strings.Trim(val, "\"")
-
+			var val string
+			if et > 0 {
+				val = nS[st : et+1]
+				val = strings.Trim(val, "\"")
+			}
 			envVal := os.Getenv(key)
 			if envVal != "" {
 				val = envVal
