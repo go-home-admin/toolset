@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // ProtocFileParser 解释proto文件结构
@@ -99,7 +100,7 @@ func GetProtoFileParser(path string) (ProtocFileParser, error) {
 		case wordT_word:
 			switch work.Str {
 			case "syntax":
-				d.Doc = lastDoc
+				d.Doc = doc(lastDoc)
 				d.Syntax, offset = protoSyntax(l.list, offset)
 				lastDoc = ""
 			case "package":
@@ -112,7 +113,7 @@ func GetProtoFileParser(path string) (ProtocFileParser, error) {
 				lastDoc = ""
 			case "option":
 				var val Option
-				val.Doc = lastDoc
+				val.Doc = doc(lastDoc)
 				val, offset = protoOption(l.list, offset)
 				d.Option[val.Key] = val
 				lastDoc = ""
@@ -120,18 +121,18 @@ func GetProtoFileParser(path string) (ProtocFileParser, error) {
 				var val Service
 				val, offset = protoService(l.list, offset)
 				val.Protoc = &d
-				val.Doc = lastDoc
+				val.Doc = doc(lastDoc)
 				d.Services[val.Name] = val
 				lastDoc = ""
 			case "message":
 				var val Message
-				val.Doc = lastDoc
+				val.Doc = doc(lastDoc)
 				val, offset = protoMessage(l.list, offset)
 				d.Messages[val.Name] = val
 				lastDoc = ""
 			case "enum":
 				var val Enum
-				val.Doc = lastDoc
+				val.Doc = doc(lastDoc)
 				val, offset = protoEnum(l.list, offset)
 				d.Enums[val.Name] = val
 				lastDoc = ""
@@ -146,6 +147,23 @@ func GetProtoFileParser(path string) (ProtocFileParser, error) {
 
 	return d, nil
 }
+func doc(doc string) string {
+	doc = strings.TrimFunc(doc, IsSpaceAndEspecially)
+	return doc
+}
+
+func IsSpaceAndEspecially(r rune) bool {
+	// This property isn't the same as Z; special-case it.
+	if uint32(r) <= unicode.MaxLatin1 {
+		switch r {
+		case '=', ';', '/', '\t', '\n', '\v', '\f', '\r', ' ', 0x85, 0xA0:
+			return true
+		}
+		return false
+	}
+	return false
+}
+
 func protoSyntax(l []*word, offset int) (string, int) {
 	name, i := GetFistWordBehindStr(l[offset:], "syntax")
 	return name[1 : len(name)-1], offset + i
@@ -293,6 +311,7 @@ func protoMessage(l []*word, offset int) (Message, int) {
 					attr.Name, _ = GetFistWord(nl[offset+1:])
 					st, et := GetBrackets(nl[offset:], "{", "}")
 					attr.Message = protoOtherMessage(attr.Name, nl[offset+st:offset+et+1])
+					attr.Doc = doc(attr.Doc)
 					got.Attr = append(got.Attr, attr)
 					attr = Attr{}
 					offset = offset + et + 1
@@ -314,6 +333,7 @@ func protoMessage(l []*word, offset int) (Message, int) {
 				attr.Name = work.Str
 			} else {
 				attr.Num, _ = strconv.Atoi(work.Str)
+				attr.Doc = doc(attr.Doc)
 				got.Attr = append(got.Attr, attr)
 				attr = Attr{}
 			}
@@ -352,6 +372,7 @@ func protoOtherMessage(name string, l []*word) *Message {
 					attr.Name, _ = GetFistWord(nl[offset+1:])
 					st, et := GetBrackets(nl[offset:], "{", "}")
 					attr.Message = protoOtherMessage(attr.Name, nl[offset+st:offset+et+1])
+					attr.Doc = doc(attr.Doc)
 					got.Attr = append(got.Attr, attr)
 					attr = Attr{}
 					offset = offset + et + 1
@@ -373,6 +394,7 @@ func protoOtherMessage(name string, l []*word) *Message {
 				attr.Name = work.Str
 			} else {
 				attr.Num, _ = strconv.Atoi(work.Str)
+				attr.Doc = doc(attr.Doc)
 				got.Attr = append(got.Attr, attr)
 				attr = Attr{}
 			}
@@ -401,6 +423,7 @@ func protoEnum(l []*word, offset int) (Enum, int) {
 				attr.Name = work.Str
 			} else {
 				attr.Num, _ = strconv.Atoi(work.Str)
+				attr.Doc = doc(attr.Doc)
 				got.Opt = append(got.Opt, attr)
 				attr = Attr{}
 			}
