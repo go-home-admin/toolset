@@ -1,6 +1,6 @@
 # toolset 一个go项目工具集合
 ````shell
-go install github.com/go-home-admin/toolset
+go install github.com/go-home-admin/toolset@v0.0.4
 ````
 
 ![image](https://github.com/go-home-admin/toolset/blob/main/show.gif)
