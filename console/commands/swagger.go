@@ -52,7 +52,7 @@ func (SwaggerCommand) Execute(input command.Input) {
 			Description: "面向工程的框架",
 			Version:     "1.0",
 		},
-		Host:     "api.nytimes.com",
+		Host:     "github.com/go-home-admin",
 		Schemes:  []string{"https"},
 		BasePath: "/",
 		Produces: []string{"application/json"},
