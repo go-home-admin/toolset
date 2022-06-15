@@ -48,9 +48,9 @@ func (SwaggerCommand) Execute(input command.Input) {
 	swagger := openapi.Spec{
 		Swagger: "2.0",
 		Info: openapi.Info{
-			Title:       "2",
-			Description: "2",
-			Version:     "2",
+			Title:       "go-home-admin",
+			Description: "面向工程的框架",
+			Version:     "1.0",
 		},
 		Host:     "api.nytimes.com",
 		Schemes:  []string{"https"},
