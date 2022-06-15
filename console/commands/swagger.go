@@ -73,11 +73,11 @@ func (SwaggerCommand) Execute(input command.Input) {
 		for _, fileParser := range parsers {
 			for _, message := range fileParser.Messages {
 				name, parameter := messageToSchemas(prefix, message, &swagger)
-				swagger.Definitions[name] = parameter
+				swagger.Definitions[defName(name)] = parameter
 			}
 			for _, enum := range fileParser.Enums {
 				name, parameter := enumToMessage(prefix, enum)
-				swagger.Definitions[name] = parameter
+				swagger.Definitions[defName(name)] = parameter
 			}
 
 			for _, service := range fileParser.Services {
@@ -87,13 +87,31 @@ func (SwaggerCommand) Execute(input command.Input) {
 			}
 		}
 	}
-	by, _ := json.Marshal(swagger)
+	by, err := json.Marshal(swagger)
 	if !parser.DirIsExist(path2.Dir(out)) {
 		_ = os.MkdirAll(path2.Dir(out), 0760)
 	}
-	_ = ioutil.WriteFile(out, by, 0766)
-	fmt.Println("gen openapi.json to " + out)
+	err = ioutil.WriteFile(out, by, 0766)
+	if err != nil {
+		fmt.Println("gen openapi.json err " + err.Error() + ", out = " + out)
+	} else {
+		fmt.Println("gen openapi.json to " + out)
+	}
 }
+
+func defName(name string) string {
+	arr := strings.Split(name, ".")
+	if len(arr) > 2 {
+		str := ""
+		for i := len(arr) - 1; i < len(arr); i++ {
+			str += arr[i-1] + "."
+		}
+		str += arr[len(arr)-1]
+		return str
+	}
+	return name
+}
+
 func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser) {
 	for _, option := range service.Opt {
 		urlPath := option.Val
@@ -238,10 +256,10 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 			} else if option.Message != nil {
 				name, parameter := messageToSchemas(pge, *option.Message, swagger)
 				name = pge + "." + option.Name + "_" + name
-				swagger.Definitions[name] = parameter
+				swagger.Definitions[defName(name)] = parameter
 				attr := &openapi.Schema{
 					Description: getTitle(option.Doc),
-					Ref:         "#/definitions/" + name, // 嵌套肯定是本包
+					Ref:         "#/definitions/" + defName(name), // 嵌套肯定是本包
 				}
 				properties[option.Name] = attr
 			} else {
@@ -267,10 +285,10 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 		} else if option.Message != nil {
 			name, parameter := messageToSchemas(pge, *option.Message, swagger)
 			name = pge + "." + option.Name + "_" + name
-			swagger.Definitions[name] = parameter
+			swagger.Definitions[defName(name)] = parameter
 			attr := &openapi.Schema{
 				Description: getTitle(option.Doc),
-				Ref:         "#/definitions/" + name, // 嵌套肯定是本包
+				Ref:         "#/definitions/" + defName(name), // 嵌套肯定是本包
 			}
 			properties[option.Name] = attr
 		} else {
