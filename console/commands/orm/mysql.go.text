@@ -181,7 +181,7 @@ func (orm *OrmMysqlTableName) Paginate(page int, limit int) (MysqlTableNameList,
 		}
 
 		offset := (page - 1) * limit
-		tx := orm.db.Offset(page).Limit(limit).Find(&list)
+		tx := orm.db.Offset(offset).Limit(limit).Find(&list)
 		if tx.Error != nil {
 			logrus.Error(tx.Error)
 		}
