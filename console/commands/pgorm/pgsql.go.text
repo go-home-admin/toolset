@@ -170,6 +170,21 @@ func (orm *Orm{orm_table_name}) Find(conds ...interface{}) ({orm_table_name}List
 	return list, tx.RowsAffected
 }
 
+// Paginate 分页
+func (orm *Orm{orm_table_name}) Paginate(page int, limit int) ({orm_table_name}List, int64) {
+	var total int64
+	list := make([]*{orm_table_name}, 0)
+	orm.db.Count(&total)
+	if total > 0 {
+		tx := orm.db.Offset(page).Limit(limit).Find(&list)
+		if tx.Error != nil {
+			logrus.Error(tx.Error)
+		}
+	}
+
+	return list, total
+}
+
 // FindInBatches find records in batches
 func (orm *Orm{orm_table_name}) FindInBatches(dest interface{}, batchSize int, fc func(tx *gorm.DB, batch int) error) *gorm.DB {
 	return orm.db.FindInBatches(dest, batchSize, fc)
