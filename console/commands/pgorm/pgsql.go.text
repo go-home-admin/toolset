@@ -89,8 +89,8 @@ func (orm *Orm{orm_table_name}) Exec(sql string, values ...interface{}) *gorm.DB
 
 // ------------ 以下是单表独有的函数, 便捷字段条件, Laravel风格操作 ---------
 
-func (orm *Orm{orm_table_name}) Insert(row *{orm_table_name}) *gorm.DB {
-	return orm.db.Create(row)
+func (orm *Orm{orm_table_name}) Insert(row *{orm_table_name}) error {
+	return orm.db.Create(row).Error
 }
 
 func (orm *Orm{orm_table_name}) Inserts(rows []*{orm_table_name}) *gorm.DB {

@@ -89,8 +89,8 @@ func (orm *OrmMysqlTableName) Exec(sql string, values ...interface{}) *gorm.DB {
 
 // ------------ 以下是单表独有的函数, 便捷字段条件, Laravel风格操作 ---------
 
-func (orm *OrmMysqlTableName) Insert(row *MysqlTableName) *gorm.DB {
-	return orm.db.Create(row)
+func (orm *OrmMysqlTableName) Insert(row *MysqlTableName) error {
+	return orm.db.Create(row).Error
 }
 
 func (orm *OrmMysqlTableName) Inserts(rows []*MysqlTableName) *gorm.DB {
