@@ -66,15 +66,19 @@ func genListFunc(table string, columns []tableColumn) string {
 	for _, column := range columns {
 		// 索引，或者枚举字段
 		if strInStr(column.ColumnName, []string{"id", "code"}) {
-			str += "\nfunc (l " + TableName + "List) Get" + column.ColumnName + "List() []" + column.GoType + " {" +
-				"\n\tgot := make([]" + column.GoType + ", 0)\n\tfor _, val := range l {" +
+			goType := column.GoType
+			if column.IsNullable {
+				goType = "*" + goType
+			}
+			str += "\nfunc (l " + TableName + "List) Get" + column.ColumnName + "List() []" + goType + " {" +
+				"\n\tgot := make([]" + goType + ", 0)\n\tfor _, val := range l {" +
 				"\n\t\tgot = append(got, val." + column.ColumnName + ")" +
 				"\n\t}" +
 				"\n\treturn got" +
 				"\n}"
 
-			str += "\nfunc (l " + TableName + "List) Get" + column.ColumnName + "Map() map[" + column.GoType + "]*" + TableName + " {" +
-				"\n\tgot := make(map[" + column.GoType + "]*" + TableName + ")\n\tfor _, val := range l {" +
+			str += "\nfunc (l " + TableName + "List) Get" + column.ColumnName + "Map() map[" + goType + "]*" + TableName + " {" +
+				"\n\tgot := make(map[" + goType + "]*" + TableName + ")\n\tfor _, val := range l {" +
 				"\n\t\tgot[val." + column.ColumnName + "] = val" +
 				"\n\t}" +
 				"\n\treturn got" +
