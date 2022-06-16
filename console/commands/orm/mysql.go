@@ -66,15 +66,19 @@ func genListFunc(table string, columns []tableColumn) string {
 	for _, column := range columns {
 		// 索引，或者枚举字段
 		if strInStr(column.COLUMN_NAME, []string{"id", "code"}) {
-			str += "\nfunc (l " + TableName + "List) Get" + column.ColumnName + "List() []" + column.GoaType + " {" +
-				"\n\tgot := make([]" + column.GoaType + ", 0)\n\tfor _, val := range l {" +
+			goType := column.GoType
+			if *column.IS_NULLABLE == "YES" {
+				goType = "*" + goType
+			}
+			str += "\nfunc (l " + TableName + "List) Get" + column.ColumnName + "List() []" + goType + " {" +
+				"\n\tgot := make([]" + goType + ", 0)\n\tfor _, val := range l {" +
 				"\n\t\tgot = append(got, val." + column.ColumnName + ")" +
 				"\n\t}" +
 				"\n\treturn got" +
 				"\n}"
 
-			str += "\nfunc (l " + TableName + "List) Get" + column.ColumnName + "Map() map[" + column.GoaType + "]*" + TableName + " {" +
-				"\n\tgot := make(map[" + column.GoaType + "]*" + TableName + ")\n\tfor _, val := range l {" +
+			str += "\nfunc (l " + TableName + "List) Get" + column.ColumnName + "Map() map[" + goType + "]*" + TableName + " {" +
+				"\n\tgot := make(map[" + goType + "]*" + TableName + ")\n\tfor _, val := range l {" +
 				"\n\t\tgot[val." + column.ColumnName + "] = val" +
 				"\n\t}" +
 				"\n\treturn got" +
@@ -120,37 +124,37 @@ func genFieldFunc(table string, columns []tableColumn) string {
 	str := ""
 	for _, column := range columns {
 		// 等于函数
-		str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "(val " + column.GoaType + ") *Orm" + TableName + " {" +
+		str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "(val " + column.GoType + ") *Orm" + TableName + " {" +
 			"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` = ?\", val)" +
 			"\n\treturn orm" +
 			"\n}"
 
 		if column.COLUMN_KEY != "" {
 			// if 主键, 生成In, > <
-			str += "\nfunc (orm *Orm" + TableName + ") InsertGet" + column.ColumnName + "(row *" + TableName + ") " + column.GoaType + " {" +
+			str += "\nfunc (orm *Orm" + TableName + ") InsertGet" + column.ColumnName + "(row *" + TableName + ") " + column.GoType + " {" +
 				"\n\torm.db.Create(row)" +
 				"\n\treturn row." + column.ColumnName +
 				"\n}"
 
-			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "In(val []" + column.GoaType + ") *Orm" + TableName + " {" +
+			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "In(val []" + column.GoType + ") *Orm" + TableName + " {" +
 				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` IN ?\", val)" +
 				"\n\treturn orm" +
 				"\n}"
 
-			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Gt(val " + column.GoaType + ") *Orm" + TableName + " {" +
+			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Gt(val " + column.GoType + ") *Orm" + TableName + " {" +
 				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` > ?\", val)" +
 				"\n\treturn orm" +
 				"\n}"
-			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Gte(val " + column.GoaType + ") *Orm" + TableName + " {" +
+			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Gte(val " + column.GoType + ") *Orm" + TableName + " {" +
 				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` >= ?\", val)" +
 				"\n\treturn orm" +
 				"\n}"
 
-			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Lt(val " + column.GoaType + ") *Orm" + TableName + " {" +
+			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Lt(val " + column.GoType + ") *Orm" + TableName + " {" +
 				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` < ?\", val)" +
 				"\n\treturn orm" +
 				"\n}"
-			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Lte(val " + column.GoaType + ") *Orm" + TableName + " {" +
+			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Lte(val " + column.GoType + ") *Orm" + TableName + " {" +
 				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` <= ?\", val)" +
 				"\n\treturn orm" +
 				"\n}"
@@ -158,29 +162,29 @@ func genFieldFunc(table string, columns []tableColumn) string {
 			// 索引，或者枚举字段
 			if strInStr(column.COLUMN_NAME, []string{"id", "code", "status", "state"}) {
 				// else if 名称存在 id, code, status 生成in操作
-				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "In(val []" + column.GoaType + ") *Orm" + TableName + " {" +
+				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "In(val []" + column.GoType + ") *Orm" + TableName + " {" +
 					"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` IN ?\", val)" +
 					"\n\treturn orm" +
 					"\n}"
 
-				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Ne(val " + column.GoaType + ") *Orm" + TableName + " {" +
+				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Ne(val " + column.GoType + ") *Orm" + TableName + " {" +
 					"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` <> ?\", val)" +
 					"\n\treturn orm" +
 					"\n}"
 			}
 			// 时间字段
-			if strInStr(column.COLUMN_NAME, []string{"created", "updated", "time", "_at"}) || (column.GoaType == "database.Time") {
-				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Between(begin " + column.GoaType + ", end " + column.GoaType + ") *Orm" + TableName + " {" +
+			if strInStr(column.COLUMN_NAME, []string{"created", "updated", "time", "_at"}) || (column.GoType == "database.Time") {
+				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Between(begin " + column.GoType + ", end " + column.GoType + ") *Orm" + TableName + " {" +
 					"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` BETWEEN ? AND ?\", begin, end)" +
 					"\n\treturn orm" +
 					"\n}"
 
-				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Lte(val " + column.GoaType + ") *Orm" + TableName + " {" +
+				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Lte(val " + column.GoType + ") *Orm" + TableName + " {" +
 					"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` <= ?\", val)" +
 					"\n\treturn orm" +
 					"\n}"
 
-				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Gte(val " + column.GoaType + ") *Orm" + TableName + " {" +
+				str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "Gte(val " + column.GoType + ") *Orm" + TableName + " {" +
 					"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` >= ?\", val)" +
 					"\n\treturn orm" +
 					"\n}"
@@ -220,9 +224,9 @@ func getImports(tableColumns map[string][]tableColumn) map[string]string {
 			"database/sql":                                      "sql",
 		}
 		for _, column := range columns {
-			index := strings.Index(column.GoaType, ".")
+			index := strings.Index(column.GoType, ".")
 			if index != -1 {
-				as := column.GoaType[:index]
+				as := column.GoType[:index]
 				importStr := alias[as]
 				tm[importStr] = as
 			}
@@ -245,7 +249,7 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf) string {
 		}
 		hasField[column.COLUMN_NAME] = true
 		fieldName := parser.StringToHump(column.COLUMN_NAME)
-		str += fmt.Sprintf("\n\t%v %v%v`%v` // %v", fieldName, p, column.GoaType, genGormTag(column), strings.ReplaceAll(column.COLUMN_COMMENT, "\n", " "))
+		str += fmt.Sprintf("\n\t%v %v%v`%v` // %v", fieldName, p, column.GoType, genGormTag(column), strings.ReplaceAll(column.COLUMN_COMMENT, "\n", " "))
 	}
 	// 表依赖
 	if helper, ok := conf["helper"]; ok {
@@ -399,7 +403,7 @@ ORDER BY
 		}
 
 		col.ColumnName = parser.StringToHump(col.COLUMN_NAME)
-		col.GoaType = typeForMysqlToGo[col.DATA_TYPE]
+		col.GoType = typeForMysqlToGo[col.DATA_TYPE]
 
 		if _, ok := tableColumns[col.TABLE_NAME]; !ok {
 			tableColumns[col.TABLE_NAME] = []tableColumn{}
@@ -461,7 +465,7 @@ func (d *DB) tableIndex() map[string]map[string][]tableColumnIndex {
 type tableColumn struct {
 	// 驼峰命名的字段
 	ColumnName string
-	GoaType    string
+	GoType     string
 	mysql
 	Index []tableColumnIndex
 }
