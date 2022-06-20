@@ -29,7 +29,7 @@ func (CurdCommand) Configure() command.Configure {
 		Name:        "make:curd",
 		Description: "生成curd基础代码, 默认使用交互输入, 便捷调用 ",
 		Input: command.Argument{
-			Argument: []command.ArgParam{
+			Option: []command.ArgParam{
 				{
 					Name:        "conn_name",
 					Description: "连接名",
@@ -38,8 +38,6 @@ func (CurdCommand) Configure() command.Configure {
 					Name:        "table_name",
 					Description: "表名",
 				},
-			},
-			Option: []command.ArgParam{
 				{
 					Name:        "config",
 					Description: "配置文件",
@@ -51,7 +49,10 @@ func (CurdCommand) Configure() command.Configure {
 				},
 				{
 					Name:        "explain",
-					Description: "说明",
+					Description: "生成的注释, 默认为表注释",
+					Call: func(val string, c *command.Console) (string, bool) {
+						return "", true
+					},
 				},
 			},
 		},
@@ -75,16 +76,8 @@ func (CurdCommand) Execute(input command.Input) {
 		return
 	}
 	connections := m["connections"].(map[interface{}]interface{})
-	connName := input.GetArgument("conn_name")
-	if _, ok := connections[connName]; !ok {
-		log.Printf("没有找不到对应数据库连接")
-		return
-	}
-	tableName := input.GetArgument("table_name")
-	if tableName == "" {
-		log.Printf("请输入表名")
-		return
-	}
+	connName := getConnName(input.GetOption("conn_name"), connections)
+	tableName := getTableName(input.GetOption("table_name"), connections[connName])
 	config := connections[connName].(map[interface{}]interface{})
 	TableColumns := GetTableColumn(config, tableName)
 	out := input.GetOption("go_out")
@@ -131,6 +124,69 @@ func (CurdCommand) Execute(input command.Input) {
 	buildPut(input, outUrl, module, "put", contName)
 	//proto
 	buildProto(input, protoUrl, module, contName, TableColumns)
+}
+
+// 获取连接名称
+func getConnName(connName string, connections map[interface{}]interface{}) string {
+	if connName == "" {
+		var got int
+		gotName := make(map[int]string)
+		fmt.Printf("请选中以下连接数据库配置\n")
+		for name, m := range connections {
+			conf := m.(map[interface{}]interface{})
+			driver := conf["driver"]
+			if driver == "mysql" || driver == "pgsql" {
+				got++
+				gotName[got] = name.(string)
+				fmt.Printf("%v: %v\n", got, name)
+			}
+		}
+		if len(gotName) == 1 {
+			got = 1
+			fmt.Printf("只有一个数据库, 已经自动选中: 1\n")
+		} else {
+			fmt.Printf("请输入数字: ")
+			fmt.Scan(&got)
+		}
+		connName = gotName[got]
+	}
+
+	if _, ok := connections[connName]; !ok {
+		panic("没有找不到对应数据库连接")
+	}
+
+	return connName
+}
+
+func getTableName(tableName string, m interface{}) string {
+	conf := m.(map[interface{}]interface{})
+	if tableName == "" {
+		fmt.Printf("未指定表, 可以使用以下的表生成\n")
+		tables := make(map[int]string)
+		switch conf["driver"] {
+		case "mysql":
+			db := orm.NewDb(conf)
+			rows, _ := db.GetDB().Query("SELECT A.TABLE_NAME as name FROM INFORMATION_SCHEMA.COLUMNS A WHERE A.TABLE_SCHEMA = ? GROUP BY TABLE_NAME", conf["database"].(string))
+			defer rows.Close()
+			i := 0
+			for rows.Next() {
+				i++
+				var name string
+				rows.Scan(&name)
+				tables[i] = name
+				fmt.Printf("%v: %v\n", i, name)
+			}
+		case "pgsql":
+
+		}
+
+		fmt.Printf("请输入数字: ")
+		var got int
+		fmt.Scan(&got)
+		tableName = tables[got]
+	}
+
+	return tableName
 }
 
 func buildController(input command.Input, outUrl string, module string, contName string) {

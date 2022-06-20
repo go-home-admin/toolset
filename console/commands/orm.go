@@ -8,6 +8,7 @@ import (
 	"github.com/go-home-admin/toolset/console/commands/pgorm"
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v2"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -52,10 +53,10 @@ func (OrmCommand) Execute(input command.Input) {
 	fileContext = SetEnv(fileContext)
 	m := make(map[string]interface{})
 	err = yaml.Unmarshal(fileContext, &m)
-	//if err != nil {
-	//	panic(err)
-	//}
-
+	if err != nil {
+		log.Printf("配置解析错误:%v", err)
+		return
+	}
 	connections := m["connections"].(map[interface{}]interface{})
 	for s, confT := range connections {
 		conf := confT.(map[interface{}]interface{})
