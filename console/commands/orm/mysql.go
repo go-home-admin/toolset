@@ -130,8 +130,12 @@ func genFieldFunc(table string, columns []tableColumn) string {
 			"\n}"
 
 		if column.COLUMN_KEY != "" {
+			goType := column.GoType
+			if *column.IS_NULLABLE == "YES" {
+				goType = "*" + goType
+			}
 			// if 主键, 生成In, > <
-			str += "\nfunc (orm *Orm" + TableName + ") InsertGet" + column.ColumnName + "(row *" + TableName + ") " + column.GoType + " {" +
+			str += "\nfunc (orm *Orm" + TableName + ") InsertGet" + column.ColumnName + "(row *" + TableName + ") " + goType + " {" +
 				"\n\torm.db.Create(row)" +
 				"\n\treturn row." + column.ColumnName +
 				"\n}"
@@ -507,7 +511,7 @@ var typeForMysqlToGo = map[string]string{
 	"integer":            "int64",
 	"tinyint":            "int32",
 	"smallint":           "int32",
-	"mediumint":          "int64",
+	"mediumint":          "int32",
 	"bigint":             "int64",
 	"int unsigned":       "uint64",
 	"integer unsigned":   "uint64",
