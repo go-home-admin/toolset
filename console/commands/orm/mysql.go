@@ -411,7 +411,7 @@ ORDER BY
 		}
 
 		col.ColumnName = parser.StringToHump(col.COLUMN_NAME)
-		col.GoType = typeForMysqlToGo[col.DATA_TYPE]
+		col.GoType = TypeForMysqlToGo[col.DATA_TYPE]
 
 		if _, ok := tableColumns[col.TABLE_NAME]; !ok {
 			tableColumns[col.TABLE_NAME] = []tableColumn{}
@@ -510,7 +510,7 @@ type tableColumnIndex struct {
 	NON_UNIQUE  string
 }
 
-var typeForMysqlToGo = map[string]string{
+var TypeForMysqlToGo = map[string]string{
 	"int":                "int64",
 	"integer":            "int64",
 	"tinyint":            "int32",
