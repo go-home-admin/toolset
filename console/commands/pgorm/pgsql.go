@@ -130,8 +130,12 @@ func genFieldFunc(table string, columns []tableColumn) string {
 			"\n}"
 
 		if column.IsPKey {
+			goType := column.GoType
+			if column.IsNullable {
+				goType = "*" + goType
+			}
 			// if 主键, 生成In, > <
-			str += "\nfunc (orm *Orm" + TableName + ") InsertGet" + column.ColumnName + "(row *" + TableName + ") " + column.GoType + " {" +
+			str += "\nfunc (orm *Orm" + TableName + ") InsertGet" + column.ColumnName + "(row *" + TableName + ") " + goType + " {" +
 				"\n\torm.db.Create(row)" +
 				"\n\treturn row." + column.ColumnName +
 				"\n}"
