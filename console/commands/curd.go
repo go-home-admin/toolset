@@ -44,8 +44,9 @@ func (CurdCommand) Configure() command.Configure {
 					Default:     "@root/config/database.yaml",
 				},
 				{
-					Name:        "go_out",
-					Description: "生成文件到指定目录",
+					Name:        "module",
+					Description: "模块名称, 默认: admin",
+					Default:     "admin",
 				},
 				{
 					Name:        "explain",
@@ -78,14 +79,12 @@ func (CurdCommand) Execute(input command.Input) {
 	connections := m["connections"].(map[interface{}]interface{})
 	connName := getConnName(input.GetOption("conn_name"), connections)
 	tableName := getTableName(input.GetOption("table_name"), connections[connName])
+
 	config := connections[connName].(map[interface{}]interface{})
 	TableColumns := GetTableColumn(config, tableName)
-	out := input.GetOption("go_out")
-	if out == "" {
-		log.Printf("请输入保存到目录地址")
-		return
-	}
-	outUrl := root + "/app/http/admin/" + out + "/" + tableName
+
+	module := input.GetOption("module")
+	outUrl := root + "/app/http/" + module + "/" + tableName
 	_, err = os.Stat(outUrl)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(outUrl, 0766)
@@ -94,7 +93,7 @@ func (CurdCommand) Execute(input command.Input) {
 			return
 		}
 	}
-	protoUrl := root + "/protobuf/admin/" + out + "/" + tableName
+	protoUrl := root + "/protobuf/" + module + "/" + tableName
 	_, err = os.Stat(protoUrl)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(protoUrl, 0766)
@@ -111,19 +110,19 @@ func (CurdCommand) Execute(input command.Input) {
 	} else {
 		contName = strings.ToUpper(tableName)
 	}
-	module := getModModule()
+	goMod := getModModule()
 	//controller
-	buildController(input, outUrl, module, contName)
+	buildController(input, outUrl, goMod, contName)
 	//del
-	buildDel(input, outUrl, module, "del", contName)
+	buildDel(input, outUrl, goMod, "del", contName)
 	//get
-	buildGet(input, outUrl, module, "get", contName)
+	buildGet(input, outUrl, goMod, "get", contName)
 	//post
-	buildPost(input, outUrl, module, "post", contName)
+	buildPost(input, outUrl, goMod, "post", contName)
 	//put
-	buildPut(input, outUrl, module, "put", contName)
+	buildPut(input, outUrl, goMod, "put", contName)
 	//proto
-	buildProto(input, protoUrl, module, contName, TableColumns)
+	buildProto(input, protoUrl, goMod, contName, TableColumns)
 }
 
 // 获取连接名称
