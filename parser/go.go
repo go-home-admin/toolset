@@ -20,6 +20,9 @@ func NewGoParserForDir(path string) map[string][]GoFileParser {
 	for _, dir := range GetChildrenDir(path) {
 		arr := make([]GoFileParser, 0)
 		for _, file := range dir.GetFiles(".go") {
+			if file.Name() == "z_inject_gen.go" {
+				continue
+			}
 			gof, _ := GetFileParser(file.Path)
 			arr = append(arr, gof)
 		}
@@ -113,12 +116,14 @@ func GetFileParser(path string) (GoFileParser, error) {
 			default:
 				// 遇到未支持的结构, 直接跳到\n}\n重新开始
 				endCheck := 0
-				for offset < len(l.list) {
+				for offset < len(l.list)-1 {
 					offset++
 					work2 := l.list[offset]
 					if endCheck == 0 && work2.Ty == wordT_line {
 						endCheck++
-					} else if endCheck == 1 && (work2.Str == ")" || work2.Str == "}") {
+					} else if endCheck == 1 && work2.Ty == wordT_line {
+						break // 连续两个空格的代码都是结束的(go fmt后的代码)
+					} else if endCheck == 1 && !(work2.Str == " " || work2.Str == "\t") {
 						endCheck++
 					} else if endCheck == 2 && work2.Ty == wordT_line {
 						break
@@ -442,12 +447,13 @@ func handleCosts(l []*word, offset int) (map[string]string, int) {
 
 func handleVars(l []*word, offset int) (map[string]string, int) {
 	endCheck := 0
-	offset++
 	for offset < len(l)-1 {
 		offset++
 		work2 := l[offset]
 		if endCheck == 0 && work2.Ty == wordT_line {
 			endCheck++
+		} else if endCheck == 1 && work2.Ty == wordT_line {
+			break // 连续两个空格的代码都是结束的(go fmt后的代码)
 		} else if endCheck == 1 && !(work2.Str == " " || work2.Str == "\t") {
 			endCheck++
 		} else if endCheck == 2 && work2.Ty == wordT_line {
