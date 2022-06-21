@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"fmt"
-	"os"
 	"strings"
 )
 
@@ -111,13 +109,29 @@ func GetFileParser(path string) (GoFileParser, error) {
 				_, offset = handleVars(l.list, offset)
 				lastDoc = ""
 			default:
-				nl := l.list[offset:]
-				str := ""
-				for _, w := range nl {
-					str += w.Str
+				// 遇到未支持的结构, 直接跳到\n}\n重新开始
+				endCheck := 0
+				for offset < len(l.list) {
+					offset++
+					work2 := l.list[offset]
+					if endCheck == 0 && work2.Ty == wordT_line {
+						endCheck++
+					} else if endCheck == 1 && (work2.Str == ")" || work2.Str == "}") {
+						endCheck++
+					} else if endCheck == 2 && work2.Ty == wordT_line {
+						break
+					} else {
+						endCheck = 0
+					}
 				}
-				fmt.Println("文件块作用域似乎解析有错误\n", path, "\n", offset, "\n", str)
-				os.Exit(1)
+				//
+				//nl := l.list[offset:]
+				//str := ""
+				//for _, w := range nl {
+				//	str += w.Str
+				//}
+				//fmt.Println("文件块作用域似乎解析有错误\n", path, "\n", offset, "\n", str)
+				//os.Exit(1)
 			}
 		}
 	}
