@@ -111,6 +111,22 @@ func GetFileParser(path string) (GoFileParser, error) {
 				_, offset = handleVars(l.list, offset)
 				lastDoc = ""
 			default:
+				// 遇到未支持的结构, 直接跳到\n}\n重新开始
+				endCheck := 0
+				for offset < len(l.list) {
+					offset++
+					work2 := l.list[offset]
+					if endCheck == 0 && work2.Ty == wordT_line {
+						endCheck++
+					} else if endCheck == 1 && (work2.Str == ")" || work2.Str == "}") {
+						endCheck++
+					} else if endCheck == 2 && work2.Ty == wordT_line {
+						break
+					} else {
+						endCheck = 0
+					}
+				}
+
 				nl := l.list[offset:]
 				str := ""
 				for _, w := range nl {
@@ -425,36 +441,22 @@ func handleCosts(l []*word, offset int) (map[string]string, int) {
 }
 
 func handleVars(l []*word, offset int) (map[string]string, int) {
-	ft, _ := GetFistStr(l[offset+1:])
-	if ft != "(" {
-		ok, _ := GetLastIsIdentifier(l[offset:], "{")
-		if ok {
-			last := NextLine(l[offset:])
-			ss := l[offset+last-1]
-			if ss.Str == "{" {
-				nl := l[offset+last-1:]
-				offset = offset + last - 1
-				_, et := GetBrackets(nl, "{", "}")
-				offset = offset + et + 1
-				// 检查是否 struct 实例化
-				_, et = GetBrackets(l[offset:], "{", "}")
-				offset = offset + et + 1
-				return nil, offset
-			} else {
-				nl := l[offset:]
-				_, et := GetBrackets(nl, "{", "}")
-				return nil, offset + et + 1
-			}
+	endCheck := 0
+	offset++
+	for offset < len(l)-1 {
+		offset++
+		work2 := l[offset]
+		if endCheck == 0 && work2.Ty == wordT_line {
+			endCheck++
+		} else if endCheck == 1 && !(work2.Str == " " || work2.Str == "\t") {
+			endCheck++
+		} else if endCheck == 2 && work2.Ty == wordT_line {
+			break
 		} else {
-			last := NextLine(l[offset:])
-			offset = offset + last
-			return nil, offset
+			endCheck = 0
 		}
-	} else {
-		nl := l[offset:]
-		_, et := GetBrackets(nl, "(", ")")
-		return nil, offset + et + 1
 	}
+	return nil, offset
 }
 
 func toStr(l []*word) string {
