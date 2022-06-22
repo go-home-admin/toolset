@@ -82,7 +82,7 @@ func (SwaggerCommand) Execute(input command.Input) {
 
 			for _, service := range fileParser.Services {
 				for _, rpc := range service.Rpc {
-					rpcToPath(prefix, rpc, &swagger, parsers, allProtoc)
+					rpcToPath(prefix, rpc, &swagger, parsers, allProtoc, service.Opt)
 				}
 			}
 		}
@@ -112,9 +112,12 @@ func defName(name string) string {
 	return name
 }
 
-func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser) {
+func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser, serviceOpt map[string]parser.Option) {
 	for _, option := range service.Opt {
 		urlPath := option.Val
+		if routeGroup, ok := serviceOpt["http.RouteGroup"]; ok {
+			urlPath = "$[" + routeGroup.Val + "]" + urlPath
+		}
 		var path = &openapi.Path{}
 		if o, ok := swagger.Paths[urlPath]; ok {
 			path = o
