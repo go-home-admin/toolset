@@ -34,8 +34,8 @@ func (j *Js) Configure() command.Configure {
 					Default:     "@root/resources/src/api/swagger_gen.js",
 				},
 				{
-					Name:        "tags",
-					Description: "过滤的tag, 只生成有指定tag的请求",
+					Name:        "tag",
+					Description: "只生成指定tag的请求",
 				},
 			},
 		},
@@ -85,12 +85,7 @@ func (j *Js) Execute(input command.Input) {
 	}
 	_ = json.Unmarshal([]byte(inSwaggerStr), &swagger)
 
-	tags := make(map[string]bool)
-	for _, s := range input.GetOptions("tags") {
-		if s != "" {
-			tags[s] = true
-		}
-	}
+	tag := input.GetOption("tag")
 	str := `import http from "@/utils/request";
 import config from "@/config";
 `
@@ -99,11 +94,11 @@ import config from "@/config";
 		re, _ := regexp.Compile("\\$\\[.+\\]")
 		url = re.ReplaceAllString(url, "")
 		methods := make([]makeJsCache, 0)
-		methods = append(methods, makeJsCache{e: paths.Get, cm: canMakeJs(paths.Get, tags), method: "get"})
-		methods = append(methods, makeJsCache{e: paths.Put, cm: canMakeJs(paths.Put, tags), method: "put"})
-		methods = append(methods, makeJsCache{e: paths.Post, cm: canMakeJs(paths.Post, tags), method: "post"})
-		methods = append(methods, makeJsCache{e: paths.Patch, cm: canMakeJs(paths.Patch, tags), method: "patch"})
-		methods = append(methods, makeJsCache{e: paths.Delete, cm: canMakeJs(paths.Delete, tags), method: "delete"})
+		methods = append(methods, makeJsCache{e: paths.Get, cm: canMakeJs(paths.Get, tag), method: "get"})
+		methods = append(methods, makeJsCache{e: paths.Put, cm: canMakeJs(paths.Put, tag), method: "put"})
+		methods = append(methods, makeJsCache{e: paths.Post, cm: canMakeJs(paths.Post, tag), method: "post"})
+		methods = append(methods, makeJsCache{e: paths.Patch, cm: canMakeJs(paths.Patch, tag), method: "patch"})
+		methods = append(methods, makeJsCache{e: paths.Delete, cm: canMakeJs(paths.Delete, tag), method: "delete"})
 		for _, method := range methods {
 			if method.cm {
 				str += fmt.Sprintf(`
@@ -167,14 +162,14 @@ type makeJsCache struct {
 	method string
 }
 
-func canMakeJs(e *openapi.Endpoint, tags map[string]bool) bool {
+func canMakeJs(e *openapi.Endpoint, tag string) bool {
 	makeJs := false
 	if e != nil {
-		if len(tags) == 0 {
+		if tag == "" {
 			makeJs = true
 		} else {
 			for _, t := range e.Tags {
-				if tags[t] {
+				if t == tag {
 					makeJs = true
 					break
 				}
