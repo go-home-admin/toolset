@@ -126,8 +126,8 @@ func GetProtoFileParser(path string) (ProtocFileParser, error) {
 				lastDoc = ""
 			case "message":
 				var val Message
-				val.Doc = doc(lastDoc)
 				val, offset = protoMessage(l.list, offset)
+				val.Doc = doc(lastDoc)
 				d.Messages[val.Name] = val
 				lastDoc = ""
 			case "enum":

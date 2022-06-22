@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -95,6 +96,8 @@ import config from "@/config";
 `
 	for _, url := range sortPathMap(swagger.Paths) {
 		paths := swagger.Paths[url]
+		re, _ := regexp.Compile("\\$\\[.+\\]")
+		url = re.ReplaceAllString(url, "")
 		methods := make([]makeJsCache, 0)
 		methods = append(methods, makeJsCache{e: paths.Get, cm: canMakeJs(paths.Get, tags), method: "get"})
 		methods = append(methods, makeJsCache{e: paths.Put, cm: canMakeJs(paths.Put, tags), method: "put"})
