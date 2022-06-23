@@ -9,7 +9,7 @@ type Orm{orm_table_name} struct {
 
 func NewOrm{orm_table_name}() *Orm{orm_table_name} {
 	orm := &Orm{orm_table_name}{}
-	orm.db = providers.NewMysqlProvider().GetBean("{db}").(*gorm.DB).Model(&MysqlTableName{}).Model(&{orm_table_name}{})
+	orm.db = providers.NewMysqlProvider().GetBean("{db}").(*gorm.DB).Model(&{orm_table_name}{}).Model(&{orm_table_name}{})
 	return orm
 }
 

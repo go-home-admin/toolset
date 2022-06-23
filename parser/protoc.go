@@ -28,6 +28,7 @@ type Option struct {
 }
 
 type Service struct {
+	Pack   string
 	Protoc *ProtocFileParser
 	Doc    string
 	Name   string

@@ -55,9 +55,11 @@ func (RouteCommand) Execute(input command.Input) {
 
 	for _, parsers := range parser.NewProtocParserForDir(path) {
 		for _, fileParser := range parsers {
+			packageStr := strings.ReplaceAll(fileParser.Option["go_package"].Val, module+"/generate/proto", "")
 			for _, service := range fileParser.Services {
 				group := ""
-
+				imports := packageStr + "/" + parser.StringToSnake(service.Name)
+				service.Pack = imports
 				for _, option := range service.Opt {
 					if option.Key == "http.RouteGroup" {
 						group = option.Val
@@ -79,14 +81,12 @@ func (RouteCommand) Execute(input command.Input) {
 
 				if group != "" {
 					g := agl[group]
-					imports := module + "/app/http/" + fileParser.PackageName + "/" + parser.StringToSnake(service.Name)
+					imports := packageStr + "/" + parser.StringToSnake(service.Name)
 					g.imports[imports] = imports
-
 					g.controllers = append(g.controllers, Controller{
 						name:  service.Name,
 						alias: imports,
 					})
-
 					g.servers = append(g.servers, service)
 				}
 			}
@@ -108,8 +108,10 @@ func (RouteCommand) Execute(input command.Input) {
 }
 
 func genController(server parser.Service, out string) {
-	page := server.Protoc.PackageName
-	out += "/" + page + "/" + parser.StringToSnake(server.Name)
+	// 支持多级proto多级目录
+	module := getModModule()
+	prefix := strings.ReplaceAll(server.Pack, module+"/app/http/", "")
+	out += "/" + parser.StringToSnake(prefix)
 
 	if !parser.DirIsExist(out) {
 		_ = os.MkdirAll(out, 0760)
@@ -253,8 +255,9 @@ func genRoutesFunc(g *ApiGroups, m map[string]string) string {
 				if strings.Index(option.Key, "http.") == 0 {
 					i := strings.Index(option.Key, ".")
 					method := option.Key[i+1:]
+					alias := m[server.Pack]
 					str += "\n\t\t" + homeApi + "." + method + "(\"" + option.Val + "\"):" +
-						"c." + parser.StringToSnake(server.Name) + ".GinHandle" + parser.StringToHump(rName) + ","
+						"c." + parser.StringToSnake(alias+server.Name) + ".GinHandle" + parser.StringToHump(rName) + ","
 				}
 			}
 		}
@@ -268,7 +271,7 @@ func genRoutesStruct(g *ApiGroups, m map[string]string) string {
 		"\ntype " + parser.StringToHump(g.name) + "Routes struct {\n"
 	for _, controller := range g.controllers {
 		alias := m[controller.alias]
-		str += "\t" + parser.StringToSnake(controller.name) + " *" + alias + ".Controller" + " `inject:\"\"`\n"
+		str += "\t" + parser.StringToSnake(alias+controller.name) + " *" + alias + ".Controller" + " `inject:\"\"`\n"
 	}
 
 	return str + "}\n"
