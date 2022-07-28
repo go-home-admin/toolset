@@ -507,17 +507,17 @@ type tableColumnIndex struct {
 }
 
 var typeForMysqlToGo = map[string]string{
-	"int":                "int64",
-	"integer":            "int64",
+	"int":                "int32",
+	"integer":            "int32",
 	"tinyint":            "int32",
 	"smallint":           "int32",
 	"mediumint":          "int32",
 	"bigint":             "int64",
-	"int unsigned":       "uint64",
-	"integer unsigned":   "uint64",
+	"int unsigned":       "uint32",
+	"integer unsigned":   "uint32",
 	"tinyint unsigned":   "uint32",
-	"smallint unsigned":  "uint64",
-	"mediumint unsigned": "uint64",
+	"smallint unsigned":  "uint32",
+	"mediumint unsigned": "uint32",
 	"bigint unsigned":    "uint64",
 	"bit":                "int64",
 	"bool":               "bool",
