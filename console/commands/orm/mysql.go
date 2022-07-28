@@ -408,6 +408,11 @@ ORDER BY
 
 		col.ColumnName = parser.StringToHump(col.COLUMN_NAME)
 		col.GoType = typeForMysqlToGo[col.DATA_TYPE]
+		if col.GoType == "int32" || col.GoType == "int64" {
+			if strings.Contains(col.COLUMN_TYPE, "unsigned") {
+				col.GoType = "u" + col.GoType
+			}
+		}
 
 		if _, ok := tableColumns[col.TABLE_NAME]; !ok {
 			tableColumns[col.TABLE_NAME] = []tableColumn{}
@@ -507,42 +512,36 @@ type tableColumnIndex struct {
 }
 
 var typeForMysqlToGo = map[string]string{
-	"int":                "int32",
-	"integer":            "int32",
-	"tinyint":            "int32",
-	"smallint":           "int32",
-	"mediumint":          "int32",
-	"bigint":             "int64",
-	"int unsigned":       "uint32",
-	"integer unsigned":   "uint32",
-	"tinyint unsigned":   "uint32",
-	"smallint unsigned":  "uint32",
-	"mediumint unsigned": "uint32",
-	"bigint unsigned":    "uint64",
-	"bit":                "int64",
-	"bool":               "bool",
-	"enum":               "string",
-	"set":                "string",
-	"varchar":            "string",
-	"char":               "string",
-	"tinytext":           "string",
-	"mediumtext":         "string",
-	"text":               "string",
-	"longtext":           "string",
-	"blob":               "string",
-	"tinyblob":           "string",
-	"mediumblob":         "string",
-	"longblob":           "string",
-	"date":               "database.Time", // time.Time or string
-	"datetime":           "database.Time", // time.Time or string
-	"timestamp":          "database.Time", // time.Time or string
-	"time":               "database.Time", // time.Time or string
-	"float":              "float64",
-	"double":             "float64",
-	"decimal":            "float64",
-	"binary":             "string",
-	"varbinary":          "string",
-	"json":               "database.JSON",
+	"int":        "int32",
+	"integer":    "int32",
+	"tinyint":    "int32",
+	"smallint":   "int32",
+	"mediumint":  "int32",
+	"bigint":     "int64",
+	"bit":        "int64",
+	"bool":       "bool",
+	"enum":       "string",
+	"set":        "string",
+	"varchar":    "string",
+	"char":       "string",
+	"tinytext":   "string",
+	"mediumtext": "string",
+	"text":       "string",
+	"longtext":   "string",
+	"blob":       "string",
+	"tinyblob":   "string",
+	"mediumblob": "string",
+	"longblob":   "string",
+	"date":       "database.Time", // time.Time or string
+	"datetime":   "database.Time", // time.Time or string
+	"timestamp":  "database.Time", // time.Time or string
+	"time":       "database.Time", // time.Time or string
+	"float":      "float64",
+	"double":     "float64",
+	"decimal":    "float64",
+	"binary":     "string",
+	"varbinary":  "string",
+	"json":       "database.JSON",
 }
 
 func NewDb(conf map[interface{}]interface{}) *DB {
