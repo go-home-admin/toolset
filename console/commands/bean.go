@@ -224,7 +224,7 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 		if strings.Index(beanValue, "@") != -1 {
 			startTemp := strings.Index(beanValue, "(")
 			beanValueNextName := beanValue[1:startTemp]
-			beanValueNextVal := beanValue[startTemp+1:]
+			beanValueNextVal := strings.Trim(beanValue[startTemp+1:], ")")
 			got = got + ".GetBean(" + providers + "GetBean(\"" + beanValueNextName + "\").(providers.Bean).GetBean(\"" + beanValueNextVal + "\").(string))"
 		} else {
 			got = got + ".GetBean(\"" + beanValue + "\")"
