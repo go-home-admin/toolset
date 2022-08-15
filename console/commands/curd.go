@@ -24,6 +24,16 @@ type TableColumn struct {
 	Comment string
 }
 
+type Param struct {
+	CoonName  string
+	TableName string
+	Module    string
+	Explain   string
+	DbName    string
+}
+
+var param Param
+
 func (CurdCommand) Configure() command.Configure {
 	return command.Configure{
 		Name:        "make:curd",
@@ -77,14 +87,14 @@ func (CurdCommand) Execute(input command.Input) {
 		return
 	}
 	connections := m["connections"].(map[interface{}]interface{})
-	connName := getConnName(input.GetOption("conn_name"), connections)
-	tableName := getTableName(input.GetOption("table_name"), connections[connName])
+	param.CoonName = getConnName(input.GetOption("conn_name"), connections)
+	param.TableName = getTableName(input.GetOption("table_name"), connections[param.CoonName])
 
-	config := connections[connName].(map[interface{}]interface{})
-	TableColumns := GetTableColumn(config, tableName)
+	config := connections[param.CoonName].(map[interface{}]interface{})
+	TableColumns := GetTableColumn(config, param.TableName)
 
 	module := input.GetOption("module")
-	outUrl := root + "/app/http/" + module + "/" + tableName
+	outUrl := root + "/app/http/" + module + "/" + param.TableName
 	_, err = os.Stat(outUrl)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(outUrl, 0766)
@@ -93,7 +103,7 @@ func (CurdCommand) Execute(input command.Input) {
 			return
 		}
 	}
-	protoUrl := root + "/protobuf/" + module + "/" + tableName
+	protoUrl := root + "/protobuf/" + module + "/" + param.TableName
 	_, err = os.Stat(protoUrl)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(protoUrl, 0766)
@@ -102,27 +112,27 @@ func (CurdCommand) Execute(input command.Input) {
 			return
 		}
 	}
-	index := strings.Index(tableName, "_")
+	index := strings.Index(param.TableName, "_")
 	contName := ""
 	if index >= 0 {
-		other := tableName[index+1:]
-		contName = strings.ToUpper(tableName[:1]) + tableName[1:index] + strings.ToUpper(other[:1]) + other[1:]
+		other := param.TableName[index+1:]
+		contName = strings.ToUpper(param.TableName[:1]) + param.TableName[1:index] + strings.ToUpper(other[:1]) + other[1:]
 	} else {
-		contName = strings.ToUpper(tableName)
+		contName = strings.ToUpper(param.TableName)
 	}
 	goMod := getModModule()
 	//controller
-	buildController(input, outUrl, goMod, contName)
+	buildController(param, outUrl, goMod, contName)
 	//del
-	buildDel(input, outUrl, goMod, "del", contName)
+	buildDel(param, outUrl, goMod, "del", contName)
 	//get
-	buildGet(input, outUrl, goMod, "get", contName)
+	buildGet(param, outUrl, goMod, "get", contName, TableColumns)
 	//post
-	buildPost(input, outUrl, goMod, "post", contName)
+	buildPost(param, outUrl, goMod, "post", contName, TableColumns)
 	//put
-	buildPut(input, outUrl, goMod, "put", contName)
+	buildPut(param, outUrl, goMod, "put", contName, TableColumns)
 	//proto
-	buildProto(input, protoUrl, goMod, contName, TableColumns)
+	buildProto(param, protoUrl, goMod, contName, TableColumns)
 }
 
 // 获取连接名称
@@ -188,15 +198,11 @@ func getTableName(tableName string, m interface{}) string {
 	return tableName
 }
 
-func buildController(input command.Input, outUrl string, module string, contName string) {
-	cont := outUrl + "/" + input.GetOption("table_name") + "_controller.go"
-	str := "package " + input.GetOption("table_name")
-	pack := module + "/app/entity/" + input.GetOption("db_name")
-	str += "\n\nimport (\n  \"" + pack + "\"\n)"
-	str += "\n\n// " + input.GetOption("explain")
-	str += "\ntype Controller struct {"
-	str += "\n    orm *" + input.GetOption("db_name") + "." + contName + " `inject:\"\"`"
-	str += "\n}"
+func buildController(param Param, outUrl string, module string, contName string) {
+	cont := outUrl + "/" + param.TableName + "_controller.go"
+	str := "package " + param.TableName
+	str += "\n\n// " + param.Explain
+	str += "\ntype Controller struct {}"
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
 		log.Printf(err.Error())
@@ -204,13 +210,15 @@ func buildController(input command.Input, outUrl string, module string, contName
 	}
 }
 
-func buildHead(table_name string, module string) string {
-	str := "package " + table_name
+func buildHead(tableName string, module string, name string) string {
+	str := "package " + tableName
 	tm := []string{
 		"github.com/gin-gonic/gin",
-		module + "/app/common",
+		module + "/app/common/auth",
+		module + "/app/entity/" + param.CoonName,
 		module + "/app/providers",
-		module + "/generate/proto/admin/" + table_name,
+		module + "/generate/proto/admin",
+		module + "/home/app/http",
 	}
 	str += "\n\nimport ("
 	for _, v := range tm {
@@ -220,19 +228,19 @@ func buildHead(table_name string, module string) string {
 	return str
 }
 
-func buildDel(input command.Input, outUrl string, module string, name string, contName string) {
+func buildDel(param Param, outUrl string, module string, name string, contName string) {
 	cont := outUrl + "/del_action.go"
-	str := buildHead(input.GetOption("table_name"), module)
-	str += "\n\n// Del 删除数据 - " + input.GetOption("explain")
-	str += "\nfunc (receiver *Controller) Del(req *" + input.GetOption("go_out") + "." + contName + "PutRequest, ctx *auth.Context) (*" +
-		input.GetOption("go_out") + "." + contName + "PutRequest, error) {"
-	str += "\n	id := common.GetParamId(ctx)"
-	str += "\n	receiver.orm.Delete(id)"
-	str += "\n 	return &" + input.GetOption("go_out") + "." + contName + "PutRequest{"
+	str := buildHead(param.TableName, module, name)
+	str += "\n\n// Del 删除数据 - " + param.Explain
+	str += "\nfunc (receiver *Controller) Del(req *admin" + "." + contName + "PutRequest, ctx *auth.Context) (*admin" + "." + contName + "PutRequest, error) {"
+	str += "\n	id := ctx.GetId()"
+	str += "\n	err := " + param.CoonName + ".NewOrm" + contName + ".Delete(id)"
+	str += "\n 	return &admin" + "." + contName + "PutRequest{"
 	str += "\n		Tip: \"OK\","
-	str += "\n	}, nil"
+	str += "\n	}, err.Error"
 	str += "\n}"
-	str += handleValue(name, input.GetOption("go_out"), contName)
+	str += "\n"
+	str += handleValue(name, "admin", contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
 		log.Printf(err.Error())
@@ -240,16 +248,23 @@ func buildDel(input command.Input, outUrl string, module string, name string, co
 	}
 }
 
-func buildGet(input command.Input, outUrl string, module string, name string, contName string) {
+func buildGet(param Param, outUrl string, module string, name string, contName string, column []TableColumn) {
 	cont := outUrl + "/get_action.go"
-	str := buildHead(input.GetOption("table_name"), module)
-	str += "\n\n// Get 列表查询 - " + input.GetOption("explain")
+	str := buildHead(param.TableName, module, name)
+	str += "\n\n// Get 列表查询 - " + param.Explain
+	co := ""
+	for _, v := range column {
+		co += fmt.Sprintf(`
+			%v:		cp.%v,`,
+			v.Name, v.Name)
+	}
 	str += fmt.Sprintf(`
-func (receiver *Controller) Get(req *%v.%vGetRequest, ctx *auth.Context) (*%v.%vGetRequest, error) {
-	list, total := receiver.orm.GetPaginate(req.Page, req.Limit)
+func (receiver *Controller) Get(req *%v.%vGetRequest, ctx *auth.Context) (*%v.%vGetResponse, error) {
+	list, total := %v.NewOrm%v().Paginate(int(req.Page), int(req.Limit))
 	responseList := make([]*%v.%vInfo, 0)
 	for _, cp := range list {
-		responseList = append(responseList, &%v.%vInfo{})
+		responseList = append(responseList, &%v.%vInfo{%v
+		})
 	}
 	return &%v.%vGetResponse{
 		List:	responseList,
@@ -257,18 +272,21 @@ func (receiver *Controller) Get(req *%v.%vGetRequest, ctx *auth.Context) (*%v.%v
 	}, nil
 }
 `,
-		input.GetOption("go_out"),
+		"admin",
 		contName,
-		input.GetOption("go_out"),
+		"admin",
 		contName,
-		input.GetOption("table_name"),
+		param.CoonName,
 		contName,
-		input.GetOption("table_name"),
+		"admin",
 		contName,
-		input.GetOption("go_out"),
+		"admin",
+		contName,
+		co,
+		"admin",
 		contName,
 	)
-	str += handleValue(name, input.GetOption("go_out"), contName)
+	str += handleValue(name, "admin", contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
 		log.Printf(err.Error())
@@ -276,27 +294,30 @@ func (receiver *Controller) Get(req *%v.%vGetRequest, ctx *auth.Context) (*%v.%v
 	}
 }
 
-func buildPost(input command.Input, outUrl string, module string, name string, contName string) {
+func buildPost(param Param, outUrl string, module string, name string, contName string, column []TableColumn) {
 	cont := outUrl + "/post_action.go"
-	str := buildHead(input.GetOption("table_name"), module)
-	str += "\n\n// Post 创建新数据 - " + input.GetOption("explain")
-	str += "\nfunc (receiver *Controller) Post(req *" + input.GetOption("go_out") + "." + contName + "PostRequest, ctx *auth.Context) (*" +
-		input.GetOption("go_out") + "." + contName + "PostRequest, error) {"
+	str := buildHead(param.TableName, module, name)
+	str += "\n\n// Post 创建新数据 - " + param.Explain
+	str += "\nfunc (receiver *Controller) Post(req *admin" + "." + contName + "PostRequest, ctx *auth.Context) (*admin" + "." + contName + "PostResponse, error) {"
 	str += "\n    id := int32(common.GetParamId(ctx))"
 	str += "\n    has := receiver.orm.WhereId(id).First()"
 	str += "\n    if has == nil {"
 	str += "\n        return nil, nil"
 	str += "\n    }"
-	split := strings.Split(input.GetOption("table_name"), "_")
+	split := strings.Split(param.TableName, "_")
 	dbFunc := ""
 	for _, t := range split {
 		dbFunc += strings.ToUpper(t[:1]) + t[1:]
 	}
-	str += "\n    data := " + input.GetOption("db_name") + "." + dbFunc + "{}"
+	str += "\n    data := " + param.CoonName + "." + dbFunc + "{"
+	for _, v := range column {
+		str += "\n    	" + v.Name + ":		" + "cp." + v.Name + ","
+	}
+	str += "\n }"
 	str += "\n    res := receiver.orm.Create(&data)"
-	str += "\n    return &" + input.GetOption("go_out") + "." + contName + "PostResponse{}, res.Error"
+	str += "\n    return &admin" + "." + contName + "PostResponse{}, res.Error"
 	str += "\n}"
-	str += handleValue(name, input.GetOption("go_out"), contName)
+	str += handleValue(name, "admin", contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
 		log.Printf(err.Error())
@@ -304,26 +325,29 @@ func buildPost(input command.Input, outUrl string, module string, name string, c
 	}
 }
 
-func buildPut(input command.Input, outUrl string, module string, name string, contName string) {
+func buildPut(param Param, outUrl string, module string, name string, contName string, column []TableColumn) {
 	cont := outUrl + "/put_action.go"
-	str := buildHead(input.GetOption("table_name"), module)
-	str += "\n\n// Put 更新数据 - " + input.GetOption("explain")
-	str += "\nfunc (receiver *Controller) Put(req *" + input.GetOption("go_out") + "." + contName + "PostRequest, ctx *auth.Context) (*" +
-		input.GetOption("go_out") + "." + contName + "PostRequest, error) {"
+	str := buildHead(param.TableName, module, name)
+	str += "\n\n// Put 更新数据 - " + param.Explain
+	str += "\nfunc (receiver *Controller) Put(req *admin" + "." + contName + "PostRequest, ctx *auth.Context) (*admin" + "." + contName + "PostRequest, error) {"
 	str += "\n    id := int32(common.GetParamId(ctx))"
 	str += "\n    has := receiver.orm.WhereId(id).First()"
 	str += "\n    if has == nil {"
 	str += "\n        return nil, nil"
 	str += "\n    }"
-	split := strings.Split(input.GetOption("table_name"), "_")
+	split := strings.Split(param.TableName, "_")
 	dbFunc := ""
 	for _, t := range split {
 		dbFunc += strings.ToUpper(t[:1]) + t[1:]
 	}
-	str += "\n    receiver.orm.WhereId(id).Updates(&" + input.GetOption("db_name") + "." + dbFunc + "{})"
-	str += "\n    return &" + input.GetOption("go_out") + "." + contName + "PutResponse{}, nil"
+	str += "\n    err := receiver.orm.WhereId(id).Updates(&" + param.CoonName + "." + dbFunc + "{"
+	for _, v := range column {
+		str += "\n    " + v.Name + ":		" + "cp." + v.Name + ","
+	}
+	str += "})"
+	str += "\n    return &admin" + "." + contName + "PutResponse{}, err.Error"
 	str += "\n}"
-	str += handleValue(name, input.GetOption("go_out"), contName)
+	str += handleValue(name, "admin", contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
 		log.Printf(err.Error())
@@ -339,15 +363,18 @@ func handleValue(name string, module string, contName string) string {
 func (receiver *Controller) GinHandle%v(ctx *gin.Context) {
 	req := &%v.%v%vRequest{}
 	err := ctx.ShouleBind(req)
+
 	if err != nil {
 		providers.ErrorRequest(ctx, err)
 		return
 	}
+
 	resp, err := receiver.%v(req, auth.NewContext(ctx))
 	if err != nil {
 		providers.ErrorResponse(ctx, err)
 		return
 	}
+
 	providers.SuccessResponse(ctx, resp)
 }
 `,
@@ -360,32 +387,32 @@ func (receiver *Controller) GinHandle%v(ctx *gin.Context) {
 	return str
 }
 
-func buildProto(input command.Input, protoUrl string, module string, contName string, column []TableColumn) {
-	cont := protoUrl + "/" + input.GetOption("table_name") + ".proto"
+func buildProto(param Param, protoUrl string, module string, contName string, column []TableColumn) {
+	cont := protoUrl + "/" + param.TableName + ".proto"
 	str := "// @Tag(\"form\");"
 	str += "\nsyntax = \"proto3\";"
-	str += "\n\npackage " + input.GetOption("table_name") + ";"
+	str += "\n\npackage " + param.TableName + ";"
 	str += "\n\nimport \"http_config.proto\";"
-	str += "\n\noption go_package = \"" + module + "/generate/proto/admin/" + input.GetOption("go_out") + "\";"
-	str += "\n// " + input.GetOption("explain") + "资源控制器"
+	str += "\n\noption go_package = \"" + module + "/generate/proto/admin\"" + ";"
+	str += "\n// " + param.Explain + "资源控制器"
 	str += "\nservice " + contName + "{"
 	str += "\n	// 需要登录"
 	str += "\n  option (http.RouteGroup) = \"login\";"
-	str += "\n  // " + input.GetOption("explain") + "列表"
+	str += "\n  // " + param.Explain + "列表"
 	str += "\n  rpc Get(" + contName + "GetRequest) returns (" + contName + "GetResponse){"
-	str += "\n  	option (http.Get) = \"/" + input.GetOption("go_out") + "/" + input.GetOption("table_name") + "\";"
+	str += "\n  	option (http.Get) = \"/admin" + "/" + param.TableName + "\";"
 	str += "\n  }"
-	str += "\n  // " + input.GetOption("explain") + "创建"
+	str += "\n  // " + param.Explain + "创建"
 	str += "\n  rpc Post(" + contName + "PostRequest) returns (" + contName + "PostResponse){"
-	str += "\n  	option (http.Post) = \"/" + input.GetOption("go_out") + "/" + input.GetOption("table_name") + "\";"
+	str += "\n  	option (http.Post) = \"/admin" + "/" + param.TableName + "\";"
 	str += "\n  }"
-	str += "\n  // " + input.GetOption("explain") + "更新"
+	str += "\n  // " + param.Explain + "更新"
 	str += "\n  rpc Put(" + contName + "PutRequest) returns (" + contName + "PutResponse){"
-	str += "\n  	option (http.Put) = \"/" + input.GetOption("go_out") + "/" + input.GetOption("table_name") + "/:id\";"
+	str += "\n  	option (http.Put) = \"/admin" + "/" + param.TableName + "/:id\";"
 	str += "\n  }"
-	str += "\n  // " + input.GetOption("explain") + "删除"
+	str += "\n  // " + param.Explain + "删除"
 	str += "\n  rpc Del(" + contName + "PutRequest) returns (" + contName + "PutResponse){"
-	str += "\n  	option (http.Get) = \"/" + input.GetOption("go_out") + "/" + input.GetOption("table_name") + "/:id\";"
+	str += "\n  	option (http.Get) = \"/admin" + "/" + param.TableName + "/:id\";"
 	str += "\n  }"
 	str += "\n}"
 	str += "\nmessage " + contName + "GetRequest {"
@@ -417,7 +444,10 @@ func buildProto(input command.Input, protoUrl string, module string, contName st
 	str += "\nmessage " + contName + "Info{"
 	for i, v := range column {
 		str += "\n    // " + v.Comment
-		str += "\n    " + v.GoType + " " + v.Name + " = " + strconv.Itoa(i) + ";"
+		if v.GoType == "database.Time" {
+			v.GoType = "string"
+		}
+		str += "\n    " + v.GoType + " " + v.Name + " = " + strconv.Itoa(i+1) + ";"
 	}
 	str += "\n}"
 	err := os.WriteFile(cont, []byte(str), 0766)
