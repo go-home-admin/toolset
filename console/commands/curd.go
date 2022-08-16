@@ -89,12 +89,12 @@ func (CurdCommand) Execute(input command.Input) {
 	connections := m["connections"].(map[interface{}]interface{})
 	param.CoonName = getConnName(input.GetOption("conn_name"), connections)
 	param.TableName = getTableName(input.GetOption("table_name"), connections[param.CoonName])
-
 	config := connections[param.CoonName].(map[interface{}]interface{})
 	TableColumns := GetTableColumn(config, param.TableName)
 
-	module := input.GetOption("module")
-	outUrl := root + "/app/http/" + module + "/" + param.TableName
+	param.Module = getModule(input.GetOption("module"))
+	param.Explain = getExplain(input.GetOption("explain"))
+	outUrl := root + "/app/http/" + param.Module + "/" + param.TableName
 	_, err = os.Stat(outUrl)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(outUrl, 0766)
@@ -103,7 +103,7 @@ func (CurdCommand) Execute(input command.Input) {
 			return
 		}
 	}
-	protoUrl := root + "/protobuf/" + module + "/" + param.TableName
+	protoUrl := root + "/protobuf/" + param.Module + "/" + param.TableName
 	_, err = os.Stat(protoUrl)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(protoUrl, 0766)
@@ -198,6 +198,22 @@ func getTableName(tableName string, m interface{}) string {
 	return tableName
 }
 
+// 获取存放路径
+func getModule(Module string) string {
+	fmt.Printf("请输入存放路径: ")
+	fmt.Scan(&Module)
+	if Module == "" {
+		return param.Module
+	}
+	return Module
+}
+
+func getExplain(Explain string) string {
+	fmt.Printf("请输入说明: ")
+	fmt.Scan(&Explain)
+	return Explain
+}
+
 func buildController(param Param, outUrl string, module string, contName string) {
 	cont := outUrl + "/" + param.TableName + "_controller.go"
 	str := "package " + param.TableName
@@ -217,7 +233,7 @@ func buildHead(tableName string, module string, name string) string {
 		module + "/app/common/auth",
 		module + "/app/entity/" + param.CoonName,
 		module + "/app/providers",
-		module + "/generate/proto/admin",
+		module + "/generate/proto/" + param.Module,
 	}
 	str += "\n\nimport ("
 	for _, v := range tm {
@@ -232,21 +248,24 @@ func buildDel(param Param, outUrl string, module string, name string, contName s
 	str := buildHead(param.TableName, module, name)
 	str += "\n\n// Del 删除数据 - " + param.Explain
 	str += fmt.Sprintf(`
-func (receiver *Controller) Del(req *admin.%vPutRequest, ctx *auth.Context) (*admin.%vPutRequest, error) {
+func (receiver *Controller) Del(req *%v.%vPutRequest, ctx *auth.Context) (*%v.%vPutRequest, error) {
 	id := ctx.GetParamId()
 	err := %v.NewOrm%v().Delete(id)
-	return &admin.%vPutRequest{
+	return &%v.%vPutRequest{
 		Tip: "OK",
 	}, err.Error
 }
 `,
+		param.Module,
 		contName,
+		param.Module,
 		contName,
 		param.CoonName,
 		contName,
+		param.Module,
 		contName,
 	)
-	str += handleValue(name, "admin", contName)
+	str += handleValue(name, param.Module, contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
 		log.Printf(err.Error())
@@ -278,21 +297,21 @@ func (receiver *Controller) Get(req *%v.%vGetRequest, ctx *auth.Context) (*%v.%v
 	}, nil
 }
 `,
-		"admin",
+		param.Module,
 		contName,
-		"admin",
+		param.Module,
 		contName,
 		param.CoonName,
 		contName,
-		"admin",
+		param.Module,
 		contName,
-		"admin",
+		param.Module,
 		contName,
 		co,
-		"admin",
+		param.Module,
 		contName,
 	)
-	str += handleValue(name, "admin", contName)
+	str += handleValue(name, param.Module, contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
 		log.Printf(err.Error())
@@ -317,20 +336,21 @@ func buildPost(param Param, outUrl string, module string, name string, contName 
 		)
 	}
 	str += fmt.Sprintf(`
-func (receiver *Controller) Post(req *admin.%vPostRequest, ctx *auth.Context) (*admin.%vPostResponse, error) {
+func (receiver *Controller) Post(req *%v.%vPostRequest, ctx *auth.Context) (*%v.%vPostResponse, error) {
 	id := ctx.GetParamId()
 	has := %v.NewOrm%v().WhereId(id).First()
 	if has == nil {
 		return nil, nil
 	}
-	data := %v.%v{
-	%v
+	data := %v.%v{%v
 	}
 	res := %v.NewOrm%v().Create(&data)
-	return &admin.%vPostResponse{}, res.Error
+	return &%v.%vPostResponse{}, res.Error
 }
 `,
+		param.Module,
 		contName,
+		param.Module,
 		contName,
 		param.CoonName,
 		contName,
@@ -339,9 +359,10 @@ func (receiver *Controller) Post(req *admin.%vPostRequest, ctx *auth.Context) (*
 		pars,
 		param.CoonName,
 		contName,
+		param.Module,
 		contName,
 	)
-	str += handleValue(name, "admin", contName)
+	str += handleValue(name, param.Module, contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
 		log.Printf(err.Error())
@@ -366,19 +387,20 @@ func buildPut(param Param, outUrl string, module string, name string, contName s
 		)
 	}
 	str += fmt.Sprintf(`
-func (receiver *Controller) Put(req *admin.%vPostRequest, ctx *auth.Context) (*admin.%vPostRequest, error) {
+func (receiver *Controller) Put(req *%v.%vPostRequest, ctx *auth.Context) (*%v.%vPostRequest, error) {
 	id := ctx.GetParamId()
 	has := %v.NewOrm%v().WhereId(id).First()
 	if has == nil {
 		return nil, nil
 	}
-	err := %v.NewOrm%v().WhereId(id).Updates(&%v.%v{
-		%v
+	err := %v.NewOrm%v().WhereId(id).Updates(&%v.%v{%v
 	})
-	return &admin.%vPutResponse{}, err.Error
+	return &%v.%vPutResponse{}, err.Error
 }
 `,
+		param.Module,
 		contName,
+		param.Module,
 		contName,
 		param.CoonName,
 		contName,
@@ -387,9 +409,10 @@ func (receiver *Controller) Put(req *admin.%vPostRequest, ctx *auth.Context) (*a
 		param.CoonName,
 		dbFunc,
 		pars,
+		param.Module,
 		contName,
 	)
-	str += handleValue(name, "admin", contName)
+	str += handleValue(name, param.Module, contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
 		log.Printf(err.Error())
@@ -434,7 +457,7 @@ func buildProto(param Param, protoUrl string, module string, contName string, co
 	str := "// @Tag(\"form\");"
 	var pars string
 	for i, v := range column {
-		pars += "\n  // " + v.Comment
+		pars += "\n	 // " + v.Comment
 		if v.GoType == "database.Time" {
 			v.GoType = "string"
 		}
@@ -447,26 +470,26 @@ package %v;
 
 import "http_config.proto";
 
-option go_package = "%v/generate/proto/admin";
+option go_package = "%v/generate/proto/%v";
 // %v资源控制器
 service %v {
 	// 需要登录
 	option (http.RouteGroup) = "login";
 	// %v列表
 	rpc Get(%vGetRequest) returns (%vGetResponse){
-		option (http.Get) = "/admin/%v";
+		option (http.Get) = "/%v/%v";
 	}
 	// %v创建
 	rpc Post(%vPostRequest) returns (%vPostResponse){
-		option (http.Post) = "/admin/%v";
+		option (http.Post) = "/%v/%v";
 	}
 	// %v更新
 	rpc Put(%vPutRequest) returns (%vPutResponse){
-		option (http.Put) = "/admin/%v/:id";
+		option (http.Put) = "/%v/%v/:id";
 	}
 	// %v删除
 	rpc Del(%vDelRequest) returns (%vDelResponse){
-		option (http.Get) = "/admin/%v/:id";
+		option (http.Get) = "/%v/%v/:id";
 	}
 }
 
@@ -511,23 +534,28 @@ message %vInfo{
 `,
 		param.TableName,
 		module,
+		param.Module,
 		param.Explain,
 		contName,
 		param.Explain,
 		contName,
 		contName,
+		param.Module,
 		param.TableName,
 		param.Explain,
 		contName,
 		contName,
+		param.Module,
 		param.TableName,
 		param.Explain,
 		contName,
 		contName,
+		param.Module,
 		param.TableName,
 		param.Explain,
 		contName,
 		contName,
+		param.Module,
 		param.TableName,
 		contName,
 		contName,
