@@ -218,7 +218,6 @@ func buildHead(tableName string, module string, name string) string {
 		module + "/app/entity/" + param.CoonName,
 		module + "/app/providers",
 		module + "/generate/proto/admin",
-		module + "/home/app/http",
 	}
 	str += "\n\nimport ("
 	for _, v := range tm {
@@ -232,14 +231,21 @@ func buildDel(param Param, outUrl string, module string, name string, contName s
 	cont := outUrl + "/del_action.go"
 	str := buildHead(param.TableName, module, name)
 	str += "\n\n// Del 删除数据 - " + param.Explain
-	str += "\nfunc (receiver *Controller) Del(req *admin" + "." + contName + "PutRequest, ctx *auth.Context) (*admin" + "." + contName + "PutRequest, error) {"
-	str += "\n	id := ctx.GetId()"
-	str += "\n	err := " + param.CoonName + ".NewOrm" + contName + ".Delete(id)"
-	str += "\n 	return &admin" + "." + contName + "PutRequest{"
-	str += "\n		Tip: \"OK\","
-	str += "\n	}, err.Error"
-	str += "\n}"
-	str += "\n"
+	str += fmt.Sprintf(`
+func (receiver *Controller) Del(req *admin.%vPutRequest, ctx *auth.Context) (*admin.%vPutRequest, error) {
+	id := ctx.GetParamId()
+	err := %v.NewOrm%v().Delete(id)
+	return &admin.%vPutRequest{
+		Tip: "OK",
+	}, err.Error
+}
+`,
+		contName,
+		contName,
+		param.CoonName,
+		contName,
+		contName,
+	)
 	str += handleValue(name, "admin", contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
@@ -298,25 +304,43 @@ func buildPost(param Param, outUrl string, module string, name string, contName 
 	cont := outUrl + "/post_action.go"
 	str := buildHead(param.TableName, module, name)
 	str += "\n\n// Post 创建新数据 - " + param.Explain
-	str += "\nfunc (receiver *Controller) Post(req *admin" + "." + contName + "PostRequest, ctx *auth.Context) (*admin" + "." + contName + "PostResponse, error) {"
-	str += "\n    id := int32(common.GetParamId(ctx))"
-	str += "\n    has := receiver.orm.WhereId(id).First()"
-	str += "\n    if has == nil {"
-	str += "\n        return nil, nil"
-	str += "\n    }"
 	split := strings.Split(param.TableName, "_")
 	dbFunc := ""
 	for _, t := range split {
 		dbFunc += strings.ToUpper(t[:1]) + t[1:]
 	}
-	str += "\n    data := " + param.CoonName + "." + dbFunc + "{"
+	var pars string
 	for _, v := range column {
-		str += "\n    	" + v.Name + ":		" + "cp." + v.Name + ","
+		pars += fmt.Sprintf(`
+			%v:		cp.%v,`,
+			v.Name, v.Name,
+		)
 	}
-	str += "\n }"
-	str += "\n    res := receiver.orm.Create(&data)"
-	str += "\n    return &admin" + "." + contName + "PostResponse{}, res.Error"
-	str += "\n}"
+	str += fmt.Sprintf(`
+func (receiver *Controller) Post(req *admin.%vPostRequest, ctx *auth.Context) (*admin.%vPostResponse, error) {
+	id := ctx.GetParamId()
+	has := %v.NewOrm%v().WhereId(id).First()
+	if has == nil {
+		return nil, nil
+	}
+	data := %v.%v{
+	%v
+	}
+	res := %v.NewOrm%v().Create(&data)
+	return &admin.%vPostResponse{}, res.Error
+}
+`,
+		contName,
+		contName,
+		param.CoonName,
+		contName,
+		param.CoonName,
+		dbFunc,
+		pars,
+		param.CoonName,
+		contName,
+		contName,
+	)
 	str += handleValue(name, "admin", contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
@@ -329,24 +353,42 @@ func buildPut(param Param, outUrl string, module string, name string, contName s
 	cont := outUrl + "/put_action.go"
 	str := buildHead(param.TableName, module, name)
 	str += "\n\n// Put 更新数据 - " + param.Explain
-	str += "\nfunc (receiver *Controller) Put(req *admin" + "." + contName + "PostRequest, ctx *auth.Context) (*admin" + "." + contName + "PostRequest, error) {"
-	str += "\n    id := int32(common.GetParamId(ctx))"
-	str += "\n    has := receiver.orm.WhereId(id).First()"
-	str += "\n    if has == nil {"
-	str += "\n        return nil, nil"
-	str += "\n    }"
 	split := strings.Split(param.TableName, "_")
 	dbFunc := ""
 	for _, t := range split {
 		dbFunc += strings.ToUpper(t[:1]) + t[1:]
 	}
-	str += "\n    err := receiver.orm.WhereId(id).Updates(&" + param.CoonName + "." + dbFunc + "{"
+	var pars string
 	for _, v := range column {
-		str += "\n    " + v.Name + ":		" + "cp." + v.Name + ","
+		pars += fmt.Sprintf(`
+			%v:		cp.%v,`,
+			v.Name, v.Name,
+		)
 	}
-	str += "})"
-	str += "\n    return &admin" + "." + contName + "PutResponse{}, err.Error"
-	str += "\n}"
+	str += fmt.Sprintf(`
+func (receiver *Controller) Put(req *admin.%vPostRequest, ctx *auth.Context) (*admin.%vPostRequest, error) {
+	id := ctx.GetParamId()
+	has := %v.NewOrm%v().WhereId(id).First()
+	if has == nil {
+		return nil, nil
+	}
+	err := %v.NewOrm%v().WhereId(id).Updates(&%v.%v{
+		%v
+	})
+	return &admin.%vPutResponse{}, err.Error
+}
+`,
+		contName,
+		contName,
+		param.CoonName,
+		contName,
+		param.CoonName,
+		contName,
+		param.CoonName,
+		dbFunc,
+		pars,
+		contName,
+	)
 	str += handleValue(name, "admin", contName)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
@@ -390,66 +432,115 @@ func (receiver *Controller) GinHandle%v(ctx *gin.Context) {
 func buildProto(param Param, protoUrl string, module string, contName string, column []TableColumn) {
 	cont := protoUrl + "/" + param.TableName + ".proto"
 	str := "// @Tag(\"form\");"
-	str += "\nsyntax = \"proto3\";"
-	str += "\n\npackage " + param.TableName + ";"
-	str += "\n\nimport \"http_config.proto\";"
-	str += "\n\noption go_package = \"" + module + "/generate/proto/admin\"" + ";"
-	str += "\n// " + param.Explain + "资源控制器"
-	str += "\nservice " + contName + "{"
-	str += "\n	// 需要登录"
-	str += "\n  option (http.RouteGroup) = \"login\";"
-	str += "\n  // " + param.Explain + "列表"
-	str += "\n  rpc Get(" + contName + "GetRequest) returns (" + contName + "GetResponse){"
-	str += "\n  	option (http.Get) = \"/admin" + "/" + param.TableName + "\";"
-	str += "\n  }"
-	str += "\n  // " + param.Explain + "创建"
-	str += "\n  rpc Post(" + contName + "PostRequest) returns (" + contName + "PostResponse){"
-	str += "\n  	option (http.Post) = \"/admin" + "/" + param.TableName + "\";"
-	str += "\n  }"
-	str += "\n  // " + param.Explain + "更新"
-	str += "\n  rpc Put(" + contName + "PutRequest) returns (" + contName + "PutResponse){"
-	str += "\n  	option (http.Put) = \"/admin" + "/" + param.TableName + "/:id\";"
-	str += "\n  }"
-	str += "\n  // " + param.Explain + "删除"
-	str += "\n  rpc Del(" + contName + "PutRequest) returns (" + contName + "PutResponse){"
-	str += "\n  	option (http.Get) = \"/admin" + "/" + param.TableName + "/:id\";"
-	str += "\n  }"
-	str += "\n}"
-	str += "\nmessage " + contName + "GetRequest {"
-	str += "\n  // 列表第几页，默认1"
-	str += "\n  uint32 page = 1;"
-	str += "\n  // 每页多少条数据"
-	str += "\n  uint32 limit = 2;"
-	str += "\n}"
-	str += "\nmessage " + contName + "GetResponse {"
-	str += "\n  // 数据列表"
-	str += "\n  repeated " + contName + "Info list = 1;"
-	str += "\n  // 符合条件总数量，计算多少页"
-	str += "\n  uint32 total = 2;"
-	str += "\n}"
-	str += "\nmessage " + contName + "PostRequest {"
-	str += "\n}"
-	str += "\nmessage " + contName + "PostResponse {"
-	str += "\n  // 提示语"
-	str += "\n  string tip = 1;"
-	str += "\n}"
-	str += "\nmessage " + contName + "PutRequest {"
-	str += "\n"
-	str += "\n"
-	str += "\n}"
-	str += "\nmessage " + contName + "PutResponse {"
-	str += "\n  // 提示语"
-	str += "\n  string tip = 1;"
-	str += "\n}"
-	str += "\nmessage " + contName + "Info{"
+	var pars string
 	for i, v := range column {
-		str += "\n    // " + v.Comment
+		pars += "\n  // " + v.Comment
 		if v.GoType == "database.Time" {
 			v.GoType = "string"
 		}
-		str += "\n    " + v.GoType + " " + v.Name + " = " + strconv.Itoa(i+1) + ";"
+		pars += "\n  " + v.GoType + " " + v.Name + " = " + strconv.Itoa(i+1) + ";"
 	}
-	str += "\n}"
+	str += fmt.Sprintf(`
+syntax = "proto3";
+
+package %v;
+
+import "http_config.proto";
+
+option go_package = "%v/generate/proto/admin";
+// %v资源控制器
+service %v {
+	// 需要登录
+	option (http.RouteGroup) = "login";
+	// %v列表
+	rpc Get(%vGetRequest) returns (%vGetResponse){
+		option (http.Get) = "/admin/%v";
+	}
+	// %v创建
+	rpc Post(%vPostRequest) returns (%vPostResponse){
+		option (http.Post) = "/admin/%v";
+	}
+	// %v更新
+	rpc Put(%vPutRequest) returns (%vPutResponse){
+		option (http.Put) = "/admin/%v/:id";
+	}
+	// %v删除
+	rpc Del(%vDelRequest) returns (%vDelResponse){
+		option (http.Get) = "/admin/%v/:id";
+	}
+}
+
+message %vGetRequest {
+	// 列表第几页，默认1
+	uint32 page = 1;
+	// 每页多少条数据
+	uint32 limit = 2;
+}
+
+message %vGetResponse {
+	// 数据列表
+	repeated %vInfo list = 1;
+	// 符合条件总数量，计算多少页
+	uint32 total = 2;
+}
+
+message %vPostRequest {}
+
+message %vPostResponse {
+	// 提示语
+	string tip = 1;
+}
+
+message %vPutRequest {}
+
+message %vPutResponse {
+	// 提示语
+	string tip = 1;
+}
+
+message %vDelRequest {}
+
+message %vDelResponse {
+	// 提示语
+	string tip = 1;
+}
+
+message %vInfo{
+	%v
+}
+`,
+		param.TableName,
+		module,
+		param.Explain,
+		contName,
+		param.Explain,
+		contName,
+		contName,
+		param.TableName,
+		param.Explain,
+		contName,
+		contName,
+		param.TableName,
+		param.Explain,
+		contName,
+		contName,
+		param.TableName,
+		param.Explain,
+		contName,
+		contName,
+		param.TableName,
+		contName,
+		contName,
+		contName,
+		contName,
+		contName,
+		contName,
+		contName,
+		contName,
+		contName,
+		contName,
+		pars,
+	)
 	err := os.WriteFile(cont, []byte(str), 0766)
 	if err != nil {
 		log.Printf(err.Error())
