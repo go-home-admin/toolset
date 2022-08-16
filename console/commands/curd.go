@@ -103,7 +103,7 @@ func (CurdCommand) Execute(input command.Input) {
 			return
 		}
 	}
-	protoUrl := root + "/protobuf/" + param.Module + "/" + param.TableName
+	protoUrl := root + "/protobuf/" + param.Module
 	_, err = os.Stat(protoUrl)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(protoUrl, 0766)
