@@ -232,8 +232,8 @@ func buildHead(tableName string, module string, name string) string {
 		"github.com/gin-gonic/gin",
 		module + "/app/common/auth",
 		module + "/app/entity/" + param.CoonName,
-		module + "/app/providers",
 		module + "/generate/proto/" + param.Module,
+		"github.com/go-home-admin/home/app/http",
 	}
 	str += "\n\nimport ("
 	for _, v := range tm {
@@ -248,10 +248,10 @@ func buildDel(param Param, outUrl string, module string, name string, contName s
 	str := buildHead(param.TableName, module, name)
 	str += "\n\n// Del 删除数据 - " + param.Explain
 	str += fmt.Sprintf(`
-func (receiver *Controller) Del(req *%v.%vPutRequest, ctx *auth.Context) (*%v.%vPutRequest, error) {
-	id := ctx.GetParamId()
+func (receiver *Controller) Del(req *%v.%vDelRequest, ctx *auth.Context) (*%v.%vDelResponse, error) {
+	id := ctx.GetId()
 	err := %v.NewOrm%v().Delete(id)
-	return &%v.%vPutRequest{
+	return &%v.%vDelResponse{
 		Tip: "OK",
 	}, err.Error
 }
@@ -331,28 +331,23 @@ func buildPost(param Param, outUrl string, module string, name string, contName 
 	var pars string
 	for _, v := range column {
 		pars += fmt.Sprintf(`
-			%v:		cp.%v,`,
+			%v:		req.%v,`,
 			v.Name, v.Name,
 		)
 	}
 	str += fmt.Sprintf(`
 func (receiver *Controller) Post(req *%v.%vPostRequest, ctx *auth.Context) (*%v.%vPostResponse, error) {
-	id := ctx.GetParamId()
-	has := %v.NewOrm%v().WhereId(id).First()
-	if has == nil {
-		return nil, nil
-	}
 	data := %v.%v{%v
 	}
 	res := %v.NewOrm%v().Create(&data)
-	return &%v.%vPostResponse{}, res.Error
+	return &%v.%vPostResponse{
+		Tip: "OK",
+	}, res.Error
 }
 `,
 		param.Module,
 		contName,
 		param.Module,
-		contName,
-		param.CoonName,
 		contName,
 		param.CoonName,
 		dbFunc,
@@ -382,20 +377,22 @@ func buildPut(param Param, outUrl string, module string, name string, contName s
 	var pars string
 	for _, v := range column {
 		pars += fmt.Sprintf(`
-			%v:		cp.%v,`,
+			%v:		req.%v,`,
 			v.Name, v.Name,
 		)
 	}
 	str += fmt.Sprintf(`
-func (receiver *Controller) Put(req *%v.%vPostRequest, ctx *auth.Context) (*%v.%vPostRequest, error) {
-	id := ctx.GetParamId()
-	has := %v.NewOrm%v().WhereId(id).First()
+func (receiver *Controller) Put(req *%v.%vPutRequest, ctx *auth.Context) (*%v.%vPutResponse, error) {
+	id := ctx.GetId()
+	has, _ := %v.NewOrm%v().WhereId(id).First()
 	if has == nil {
 		return nil, nil
 	}
 	err := %v.NewOrm%v().WhereId(id).Updates(&%v.%v{%v
 	})
-	return &%v.%vPutResponse{}, err.Error
+	return &%v.%vPutResponse{
+		Tip: "OK",
+	}, err.Error
 }
 `,
 		param.Module,
@@ -427,20 +424,20 @@ func handleValue(name string, module string, contName string) string {
 	str += fmt.Sprintf(`
 func (receiver *Controller) GinHandle%v(ctx *gin.Context) {
 	req := &%v.%v%vRequest{}
-	err := ctx.ShouleBind(req)
-
+	err := ctx.ShouldBind(req)
+	context := http.NewContext(ctx)
 	if err != nil {
-		providers.ErrorRequest(ctx, err)
+		context.Fail(err)
 		return
 	}
 
 	resp, err := receiver.%v(req, auth.NewContext(ctx))
 	if err != nil {
-		providers.ErrorResponse(ctx, err)
+		context.Fail(err)
 		return
 	}
 
-	providers.SuccessResponse(ctx, resp)
+	context.Success(resp)
 }
 `,
 		name,
@@ -457,11 +454,14 @@ func buildProto(param Param, protoUrl string, module string, contName string, co
 	str := "// @Tag(\"form\");"
 	var pars string
 	for i, v := range column {
-		pars += "\n	 // " + v.Comment
-		if v.GoType == "database.Time" {
+		if v.GoType == "database.Time" || v.GoType == "database.JSON" {
 			v.GoType = "string"
 		}
-		pars += "\n  " + v.GoType + " " + v.Name + " = " + strconv.Itoa(i+1) + ";"
+		pars += fmt.Sprintf(`
+	// %v
+	%v %v = %v;`,
+			v.Comment, v.GoType, v.Name, strconv.Itoa(i+1),
+		)
 	}
 	str += fmt.Sprintf(`
 syntax = "proto3";
@@ -507,14 +507,18 @@ message %vGetResponse {
 	uint32 total = 2;
 }
 
-message %vPostRequest {}
+message %vPostRequest {
+	%v
+}
 
 message %vPostResponse {
 	// 提示语
 	string tip = 1;
 }
 
-message %vPutRequest {}
+message %vPutRequest {
+	%v
+}
 
 message %vPutResponse {
 	// 提示语
@@ -532,7 +536,7 @@ message %vInfo{
 	%v
 }
 `,
-		param.TableName,
+		param.Module,
 		module,
 		param.Module,
 		param.Explain,
@@ -561,8 +565,10 @@ message %vInfo{
 		contName,
 		contName,
 		contName,
+		pars,
 		contName,
 		contName,
+		pars,
 		contName,
 		contName,
 		contName,
