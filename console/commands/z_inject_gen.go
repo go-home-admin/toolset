@@ -6,6 +6,7 @@ import (
 )
 
 var _BeanCommandSingle *BeanCommand
+var _CurdCommandSingle *CurdCommand
 var _DevCommandSingle *DevCommand
 var _JsSingle *Js
 var _OrmCommandSingle *OrmCommand
@@ -16,6 +17,7 @@ var _SwaggerCommandSingle *SwaggerCommand
 func GetAllProvider() []interface{} {
 	return []interface{}{
 		NewBeanCommand(),
+		NewCurdCommand(),
 		NewDevCommand(),
 		NewJs(),
 		NewOrmCommand(),
@@ -31,6 +33,13 @@ func NewBeanCommand() *BeanCommand {
 		providers.AfterProvider(_BeanCommandSingle, "")
 	}
 	return _BeanCommandSingle
+}
+func NewCurdCommand() *CurdCommand {
+	if _CurdCommandSingle == nil {
+		_CurdCommandSingle = &CurdCommand{}
+		providers.AfterProvider(_CurdCommandSingle, "")
+	}
+	return _CurdCommandSingle
 }
 func NewDevCommand() *DevCommand {
 	if _DevCommandSingle == nil {
