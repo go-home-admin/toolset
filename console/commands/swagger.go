@@ -164,7 +164,9 @@ func messageToResponse(message string, nowDirProtoc []parser.ProtocFileParser, a
 func messageToParameters(message string, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser) openapi.Parameters {
 	protocMessage, pge := findMessage(message, nowDirProtoc, allProtoc)
 	got := openapi.Parameters{}
-
+	if protocMessage == nil {
+		return got
+	}
 	for _, option := range protocMessage.Attr {
 		if option.Repeated {
 			if isProtoBaseType(option.Ty) {
@@ -393,7 +395,7 @@ func findMessage(message string, nowDirProtoc []parser.ProtocFileParser, allProt
 			for _, p := range parsers {
 				if arr[0] == p.PackageName {
 					for _, m := range p.Messages {
-						if message == m.Name {
+						if arr[1] == m.Name {
 							return &m, p.PackageName
 						}
 					}
