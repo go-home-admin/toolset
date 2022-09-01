@@ -245,10 +245,25 @@ func protoService(l []*word, offset int) (Service, int) {
 func protoRpc(l []*word, offset int) (ServiceRpc, int) {
 	name, i := GetFistWordBehindStr(l[offset:], "rpc")
 	offset = offset + i + 1
-	Param, i := GetFistWord(l[offset:])
-	offset = offset + i + 1
-	Return, i := GetWord(l[offset:], 2)
-	offset = offset + i + 1
+	start, end, ok := GetBracketsOrLn(l[offset:], "(", ")")
+	Param := ""
+	if ok {
+		ParamLW := l[offset+start+1 : offset+end]
+		for _, w := range ParamLW {
+			Param = Param + w.Str
+		}
+	}
+	offset = offset + end + 1
+	start, end, ok = GetBracketsOrLn(l[offset:], "(", ")")
+	Return := ""
+	if ok {
+		ReturnLW := l[offset+start+1 : offset+end]
+		for _, w := range ReturnLW {
+			Return = Return + w.Str
+		}
+	}
+
+	offset = offset + end + 1
 	// opt
 	opt := make(map[string]Option)
 	st, et := GetBrackets(l[offset:], "{", "}")

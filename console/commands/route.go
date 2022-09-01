@@ -133,15 +133,15 @@ type Controller struct {
 import ({import})
 
 // {action}  {doc}
-func (receiver *Controller) {action}(req *{controllerAlias}.{param}, ctx http.Context) (*{controllerAlias}.{return}, error) {
+func (receiver *Controller) {action}(req *{paramAlias}.{param}, ctx http.Context) (*{returnAlias}.{return}, error) {
 	// TODO 这里写业务
-	return &{controllerAlias}.{return}{}, nil
+	return &{returnAlias}.{return}{}, nil
 }
 
 // GinHandle{action} gin原始路由处理
 // http.{method}({url})
 func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
-	req := &{controllerAlias}.{param}{}
+	req := &{paramAlias}.{param}{}
 	err := ctx.ShouldBind(req)
 	context := http.NewContext(ctx)
 	if err != nil {
@@ -182,9 +182,27 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 				}
 
 				controllerAlias := m[serPage]
+				paramAlias := controllerAlias
+				params := rpc.Param
+				returnAlias := controllerAlias
+				ret := rpc.Return
+
+				if i := strings.Index(rpc.Param, "."); i != -1 {
+					paramAlias = rpc.Param[:i]
+					params = rpc.Param[i+1:]
+					log.Printf("%v 不是同级目录的包, 生成代码后需要手动加入\n", rpc.Param)
+				}
+				if i := strings.Index(rpc.Return, "."); i != -1 {
+					returnAlias = rpc.Return[:i]
+					ret = rpc.Return[i+1:]
+					log.Printf("%v 不是同级目录的包, 生成代码后需要手动加入\n", rpc.Return)
+				}
+				// 包没有被使用
+				if params != rpc.Param && ret != rpc.Return {
+					delete(imports, serPage)
+				}
 
 				str := methodStr
-
 				i := strings.Index(option.Key, ".")
 				method := option.Key[i+1:]
 				url := option.Val
@@ -197,8 +215,10 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 					"{url}":             url,
 					"{action}":          actionName,
 					"{controllerAlias}": controllerAlias,
-					"{param}":           rpc.Param,
-					"{return}":          rpc.Return,
+					"{paramAlias}":      paramAlias,
+					"{param}":           params,
+					"{returnAlias}":     returnAlias,
+					"{return}":          ret,
 				} {
 					str = strings.ReplaceAll(str, s, O)
 				}

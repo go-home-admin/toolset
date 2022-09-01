@@ -61,7 +61,14 @@ func (BeanCommand) Execute(input command.Input) {
 	}
 
 	for dir, fileParsers := range parser.NewGoParserForDir(scan) {
-		if _, ok := skip[dir]; ok {
+		isSkip := false
+		for s, _ := range skip {
+			if strings.Index(dir, s) != -1 {
+				isSkip = true
+				break
+			}
+		}
+		if isSkip {
 			continue
 		}
 
@@ -213,8 +220,20 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 			providers += "."
 		}
 
-		return providers + "GetBean(\"" + beanAlias + "\").(" + providers + "Bean)" +
-			".GetBean(\"" + beanValue + "\").(*" + alias + name + ")"
+		got := providers + "GetBean(\"" + beanAlias + "\").(" + providers + "Bean)"
+		if strings.Index(beanValue, "@") != -1 {
+			startTemp := strings.Index(beanValue, "(")
+			beanValueNextName := beanValue[1:startTemp]
+			if beanValue[len(beanValue)-1:] != ")" {
+				beanValue = beanValue + ", " + tag.Get(2)
+			}
+			beanValueNextVal := strings.Trim(beanValue[startTemp+1:], ")")
+			got = got + ".GetBean(" + providers + "GetBean(\"" + beanValueNextName + "\").(" + providers + "Bean).GetBean(\"" + beanValueNextVal + "\").(string))"
+		} else {
+			got = got + ".GetBean(\"" + beanValue + "\")"
+		}
+
+		return got + ".(*" + alias + name + ")"
 	}
 }
 

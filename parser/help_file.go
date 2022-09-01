@@ -325,7 +325,7 @@ func getWordsWitchFile(path string) GoWords {
 			// 多行注释未结束
 			work = work + "\n"
 		default:
-			if len(got.list) != 0 && got.list[len(got.list)-1].Ty != wordT_line {
+			if len(got.list) != 0 {
 				got.list = append(got.list, &word{
 					Str: "\n",
 					Ty:  wordT_line,

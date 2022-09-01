@@ -336,6 +336,10 @@ type DB struct {
 	db *sql.DB
 }
 
+func (d *DB) GetDB() *sql.DB {
+	return d.db
+}
+
 func (d *DB) tableColumns() map[string][]tableColumn {
 	var sqlStr = `SELECT
 	TABLE_CATALOG,
@@ -407,7 +411,7 @@ ORDER BY
 		}
 
 		col.ColumnName = parser.StringToHump(col.COLUMN_NAME)
-		col.GoType = typeForMysqlToGo[col.DATA_TYPE]
+		col.GoType = TypeForMysqlToGo[col.DATA_TYPE]
 		if col.GoType == "int32" || col.GoType == "int64" {
 			if strings.Contains(col.COLUMN_TYPE, "unsigned") {
 				col.GoType = "u" + col.GoType
@@ -511,43 +515,49 @@ type tableColumnIndex struct {
 	NON_UNIQUE  string
 }
 
-var typeForMysqlToGo = map[string]string{
-	"int":        "int32",
-	"integer":    "int32",
-	"tinyint":    "int32",
-	"smallint":   "int32",
-	"mediumint":  "int32",
-	"bigint":     "int64",
-	"bit":        "int64",
-	"bool":       "bool",
-	"enum":       "string",
-	"set":        "string",
-	"varchar":    "string",
-	"char":       "string",
-	"tinytext":   "string",
-	"mediumtext": "string",
-	"text":       "string",
-	"longtext":   "string",
-	"blob":       "string",
-	"tinyblob":   "string",
-	"mediumblob": "string",
-	"longblob":   "string",
-	"date":       "database.Time", // time.Time or string
-	"datetime":   "database.Time", // time.Time or string
-	"timestamp":  "database.Time", // time.Time or string
-	"time":       "database.Time", // time.Time or string
-	"float":      "float64",
-	"double":     "float64",
-	"decimal":    "float64",
-	"binary":     "string",
-	"varbinary":  "string",
-	"json":       "database.JSON",
+var TypeForMysqlToGo = map[string]string{
+	"int":                "int32",
+	"integer":            "int32",
+	"tinyint":            "int32",
+	"smallint":           "int32",
+	"mediumint":          "int32",
+	"bigint":             "int64",
+	"int unsigned":       "uint32",
+	"integer unsigned":   "uint32",
+	"tinyint unsigned":   "uint32",
+	"smallint unsigned":  "uint32",
+	"mediumint unsigned": "uint32",
+	"bigint unsigned":    "uint64",
+	"bit":                "int64",
+	"bool":               "bool",
+	"enum":               "string",
+	"set":                "string",
+	"varchar":            "string",
+	"char":               "string",
+	"tinytext":           "string",
+	"mediumtext":         "string",
+	"text":               "string",
+	"longtext":           "string",
+	"blob":               "string",
+	"tinyblob":           "string",
+	"mediumblob":         "string",
+	"longblob":           "string",
+	"date":               "database.Time", // time.Time or string
+	"datetime":           "database.Time", // time.Time or string
+	"timestamp":          "database.Time", // time.Time or string
+	"time":               "database.Time", // time.Time or string
+	"float":              "float64",
+	"double":             "float64",
+	"decimal":            "float64",
+	"binary":             "string",
+	"varbinary":          "string",
+	"json":               "database.JSON",
 }
 
 func NewDb(conf map[interface{}]interface{}) *DB {
 	config := services.NewConfig(conf)
 	db, err := sql.Open("mysql", fmt.Sprintf(
-		"%s:%s@tcp(%s)/%s",
+		"%s:%s@tcp(%s)/%s?interpolateParams=true",
 		config.GetString("username", "root"),
 		config.GetString("password", "123456"),
 		config.GetString("host", "localhost:"+config.GetString("port", "3306")),
