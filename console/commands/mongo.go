@@ -111,6 +111,7 @@ func (MongoCommand) Execute(input command.Input) {
 			"{database}":       db,
 			"{tableName}":      tableName,
 			"{tableNameSnake}": tableNameSnake,
+			"{import}":         genImport(tableInfo.Attr),
 			"{ormStruct}":      genOrmStruct(tableName, tableInfo.Attr, structMap),
 			"{createdAt}":      genCreateAt(tableInfo.Attr),
 			"{updatedAt}":      genUpdatedAt(tableInfo.Attr),
@@ -159,6 +160,8 @@ func getGoType(column parser.Attr, structMap map[string]int) string {
 	switch t {
 	case "double", "float":
 		t = "float64"
+	case "oneof":
+		t = "interface{}"
 	}
 	if _, ok := structMap[t]; ok {
 		t = "*" + t
@@ -167,6 +170,24 @@ func getGoType(column parser.Attr, structMap map[string]int) string {
 		t = "[]" + t
 	}
 	return t
+}
+
+func genImport(columns []parser.Attr) string {
+	str := `"context"
+	"errors"
+	provider "github.com/go-home-admin/home/bootstrap/providers/mongo"
+	log "github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"gopkg.in/mgo.v2/bson"
+	"strings"`
+	for _, column := range columns {
+		if column.Name == "created_at" || column.Name == "updated_at" {
+			str += "\n\"time\"\n"
+		}
+	}
+	return str
 }
 
 func genCreateAt(columns []parser.Attr) string {
@@ -211,6 +232,7 @@ func genWhere(tableName string, columns []parser.Attr) string {
 		"float32": 1,
 		"float64": 1,
 		"string":  1,
+		"bool":    1,
 	}
 	template := "func (receiver *Orm%v) Where%v(value %v) *Orm%v {\nreturn receiver.Where(\"%v\", value)\n}\n\n"
 	str := ""
