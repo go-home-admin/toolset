@@ -9,6 +9,7 @@ var _BeanCommandSingle *BeanCommand
 var _CurdCommandSingle *CurdCommand
 var _DevCommandSingle *DevCommand
 var _JsSingle *Js
+var _MongoCommandSingle *MongoCommand
 var _OrmCommandSingle *OrmCommand
 var _ProtocCommandSingle *ProtocCommand
 var _RouteCommandSingle *RouteCommand
@@ -20,6 +21,7 @@ func GetAllProvider() []interface{} {
 		NewCurdCommand(),
 		NewDevCommand(),
 		NewJs(),
+		NewMongoCommand(),
 		NewOrmCommand(),
 		NewProtocCommand(),
 		NewRouteCommand(),
@@ -54,6 +56,13 @@ func NewJs() *Js {
 		providers.AfterProvider(_JsSingle, "")
 	}
 	return _JsSingle
+}
+func NewMongoCommand() *MongoCommand {
+	if _MongoCommandSingle == nil {
+		_MongoCommandSingle = &MongoCommand{}
+		providers.AfterProvider(_MongoCommandSingle, "")
+	}
+	return _MongoCommandSingle
 }
 func NewOrmCommand() *OrmCommand {
 	if _OrmCommandSingle == nil {
