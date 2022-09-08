@@ -1,0 +1,211 @@
+package {database}
+
+import (
+	{import}
+)
+
+{ormStruct}
+
+type Orm{tableName} struct {
+	ctx        context.Context
+	query      bson.M
+	findOpt    *options.FindOptions
+	info       *{tableName}
+	collection *mongo.Collection
+	list       Orm{tableName}List // 列表查询时候赋值
+}
+
+type Orm{tableName}List []*{tableName}
+
+func (receiver *Orm{tableName}) Init() {
+	receiver.collection = provider.NewMongoProvider().GetBean("{database}").(*mongo.Database).Collection("{tableNameSnake}")
+	receiver.query = make(bson.M)
+	receiver.ctx = context.Background()
+	receiver.findOpt = options.Find()
+}
+
+func (receiver *Orm{tableName}) Collection() *mongo.Collection {
+	return receiver.collection
+}
+
+func NewOrm{tableName}() *Orm{tableName} {
+	obj := Orm{tableName}{}
+	obj.Init()
+	return &obj
+}
+
+func (receiver *Orm{tableName}) Where(key string, value interface{}) *Orm{tableName} {
+	if key == "id" {
+		receiver.query["_id"] = value
+	} else {
+		receiver.query[key] = value
+	}
+	return receiver
+}
+
+func (receiver *Orm{tableName}) Select(columns ...string) *Orm{tableName} {
+	if len(columns) == 1 && columns[0] != "*" {
+		columns = strings.Split(strings.ReplaceAll(columns[0], " ", ""), ",")
+	}
+	if len(columns) > 0 {
+		m := make(bson.M)
+		for _, column := range columns {
+			m[column] = 1
+		}
+		receiver.findOpt.SetProjection(m)
+	}
+	return receiver
+}
+
+func (receiver *Orm{tableName}) Create(data *{tableName}) (*{tableName}, error) {
+	{createdAt}if data.Id == "" {
+		data.Id = primitive.NewObjectID().String()
+	}
+	_, err := receiver.collection.InsertOne(receiver.ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (receiver *Orm{tableName}) Updates(data map[string]interface{}) int64 {
+	{updatedAt}res, err := receiver.collection.UpdateMany(receiver.ctx, receiver.query, bson.M{"$set": data})
+	if err != nil {
+		log.Error("MongoOrm Updates错误：" + err.Error())
+		return 0
+	}
+	return res.ModifiedCount
+}
+
+func (receiver *Orm{tableName}) Update(key string, value interface{}) int64 {
+	return receiver.Updates(map[string]interface{}{key: value})
+}
+
+func (receiver *Orm{tableName}) Delete() (int64, error) {
+	if receiver.query == nil || len(receiver.query) == 0 {
+		return 0, errors.New("MongoOrm Delete错误：删除条件不能为空")
+	}
+	res, err := receiver.collection.DeleteMany(receiver.ctx, receiver.query)
+	if err != nil {
+		return 0, err
+	}
+	return res.DeletedCount, nil
+}
+
+func (receiver *Orm{tableName}) Limit(num int64) *Orm{tableName} {
+	receiver.findOpt.SetLimit(num)
+	return receiver
+}
+
+func (receiver *Orm{tableName}) Skin(num int64) *Orm{tableName} {
+	receiver.findOpt.SetSkip(num)
+	return receiver
+}
+
+func (receiver *Orm{tableName}) Order(order string) *Orm{tableName} {
+	arr := strings.Split(order, ",")
+	if len(arr) > 1 {
+		panic("官方mongo驱动暂时不支持多字段排序")
+	}
+	m := make(bson.M)
+	for _, item := range arr {
+		item = strings.Trim(item, " ")
+		strArr := strings.Split(item, " ")
+		if len(strArr) > 1 && strings.ToLower(strArr[1]) == "desc" {
+			m[strArr[0]] = -1
+		} else {
+			m[strArr[0]] = 1
+		}
+	}
+	receiver.findOpt.SetSort(m)
+	return receiver
+}
+
+func (receiver *Orm{tableName}) OrderDesc(column string) *Orm{tableName} {
+	receiver.findOpt.SetSort(bson.M{column: -1})
+	return receiver
+}
+func (receiver *Orm{tableName}) Total() int64 {
+	total, err := receiver.collection.CountDocuments(receiver.ctx, receiver.query)
+	if err != nil {
+		log.Error("MongoOrm Total错误：" + err.Error())
+		return 0
+	}
+	return total
+}
+
+func (receiver *Orm{tableName}) Get(columns ...string) []*{tableName} {
+	if len(columns) > 0 {
+		receiver.Select(columns...)
+	}
+	if receiver.findOpt.Limit == nil {
+		receiver.Limit(1000)
+	}
+	cursor, err := receiver.Collection().Find(receiver.ctx, receiver.query, receiver.findOpt)
+	if err != nil {
+		log.Error("MongoOrm Get错误：" + err.Error())
+	}
+	var data []*{tableName}
+	err = cursor.All(receiver.ctx, &data)
+	if err != nil {
+		log.Error("MongoOrm Get错误：" + err.Error())
+	}
+	defer cursor.Close(receiver.ctx)
+	return data
+}
+
+func (receiver *Orm{tableName}) First(columns ...string) *{tableName} {
+	if len(columns) > 0 {
+		receiver.Select(columns...)
+	}
+	opt := &options.FindOneOptions{
+		Projection: receiver.findOpt.Projection,
+		Sort:       receiver.findOpt.Sort,
+	}
+	if opt.Sort != nil {
+		opt.Sort = bson.M{"_id": 1}
+	}
+	var data *{tableName}
+	err := receiver.Collection().FindOne(receiver.ctx, receiver.query, opt).Decode(&data)
+	if err != nil {
+		log.Error("MongoOrm First错误：" + err.Error())
+	}
+	return data
+}
+
+func (receiver *Orm{tableName}) Paginate(page int64, pageSize int64) ([]*{tableName}, int64) {
+	total := receiver.Total()
+	if total > 0 {
+		return receiver.SimplePaginate(page, pageSize), total
+	}
+	return nil, 0
+}
+
+func (receiver *Orm{tableName}) SimplePaginate(page int64, pageSize int64) []*{tableName} {
+	receiver.Limit(pageSize)
+	if page == 0 {
+		page = 1
+	}
+	if page > 1 {
+		receiver.Skin((page - 1) * pageSize)
+	}
+	return receiver.Get()
+}
+
+func (receiver *Orm{tableName}) Increment(column string, amount ...int) int64 {
+	num := 1
+	if len(amount) > 0 {
+		num = amount[0]
+	}
+	return receiver.Update("$inc", bson.M{column: num})
+}
+
+func (receiver *Orm{tableName}) Decrement(column string, amount ...int) int64 {
+	num := -1
+	if len(amount) > 0 {
+		num = -amount[0]
+	}
+	return receiver.Update("$inc", bson.M{column: num})
+}
+
+{where}
