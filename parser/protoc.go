@@ -169,9 +169,16 @@ func protoSyntax(l []*word, offset int) (string, int) {
 	return name[1 : len(name)-1], offset + i
 }
 func protoPackageName(l []*word, offset int) (string, int) {
-	name, i := GetFistWordBehindStr(l[offset:], "package")
-	return name, offset + i
+	s, e := GetBracketsAtString(l[offset:], "package", ";")
+	str := ""
+	for _, w := range l[offset+s+1 : offset+e] {
+		if w.Str != " " {
+			str = str + w.Str
+		}
+	}
+	return str, offset + e + 1
 }
+
 func protoImport(l []*word, offset int) (string, int) {
 	name, i := GetFistWordBehindStr(l[offset:], "import")
 	return name[1 : len(name)-1], offset + i

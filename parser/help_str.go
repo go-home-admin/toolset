@@ -90,6 +90,19 @@ func GetFistStr(l []*word) (string, int) {
 	return "", len(l)
 }
 
+// 获取换行前所有词
+func GetStrAtEnd(l []*word) (string, int) {
+	s := ""
+	for i, w := range l {
+		if w.Str == "\n" {
+			return s, i
+		} else if w.Str != " " {
+			s = s + w.Str
+		}
+	}
+	return "", len(l)
+}
+
 // 获取下一行开始
 func NextLine(l []*word) int {
 	for i, w := range l {
@@ -127,6 +140,34 @@ func GetBracketsOrLn(l []*word, start, end string) (int, int, bool) {
 	}
 
 	return 0, 0, false
+}
+
+// 括号引用起来的块, 不限制分隔符
+func GetBracketsAtString(l []*word, start, end string) (int, int) {
+	var startInt, endInt int
+
+	bCount := 0
+	for i, w := range l {
+		if bCount == 0 {
+			if w.Str == start {
+				startInt = i
+				bCount++
+			}
+		} else {
+			switch w.Str {
+			case start:
+				bCount++
+			case end:
+				bCount--
+				if bCount <= 0 {
+					endInt = i
+					return startInt, endInt
+				}
+			}
+		}
+	}
+
+	return startInt, endInt
 }
 
 // 括号引用起来的块, 词性必须是分隔符
