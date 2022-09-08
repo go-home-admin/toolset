@@ -29,7 +29,7 @@ func (k *Kernel) Run() {
 		Name:        "debug",
 		Description: "是否显示明细",
 		Call: func(val string, c *command.Console) (string, bool) {
-			return "false", true
+			return val, true
 		},
 	})
 
