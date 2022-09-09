@@ -46,7 +46,7 @@ func (ProtocCommand) Configure() command.Configure {
 var show = false
 
 func (ProtocCommand) Execute(input command.Input) {
-	show = input.GetOption("debug") != "false"
+	show = input.GetOption("debug") == "true"
 	root := getRootPath()
 	_, err := exec.LookPath("protoc")
 	if err != nil {
