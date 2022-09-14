@@ -164,68 +164,70 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 	goMod := getModModule()
 
 	for rName, rpc := range server.Rpc {
-		for _, option := range rpc.Opt {
-			if strings.Index(option.Key, "http.") == 0 {
-				actionName := parser.StringToHump(rName)
-				actionFile := out + "/" + parser.StringToSnake(actionName) + "_action.go"
-				if parser.DirIsExist(actionFile) {
-					continue
-				}
+		for _, options := range rpc.Opt {
+			for _, option := range options {
+				if strings.Index(option.Key, "http.") == 0 {
+					actionName := parser.StringToHump(rName)
+					actionFile := out + "/" + parser.StringToSnake(actionName) + "_action.go"
+					if parser.DirIsExist(actionFile) {
+						continue
+					}
 
-				serPage := goMod + "/generate/proto/" + server.Protoc.PackageName
-				imports[serPage] = serPage
-				importsStr := ""
-				m := genImportAlias(imports)
-				sk := sortMap(m)
-				for _, s := range sk {
-					importsStr += "\n\t" + m[s] + " \"" + s + "\""
-				}
+					serPage := goMod + "/generate/proto/" + server.Protoc.PackageName
+					imports[serPage] = serPage
+					importsStr := ""
+					m := genImportAlias(imports)
+					sk := sortMap(m)
+					for _, s := range sk {
+						importsStr += "\n\t" + m[s] + " \"" + s + "\""
+					}
 
-				controllerAlias := m[serPage]
-				paramAlias := controllerAlias
-				params := rpc.Param
-				returnAlias := controllerAlias
-				ret := rpc.Return
+					controllerAlias := m[serPage]
+					paramAlias := controllerAlias
+					params := rpc.Param
+					returnAlias := controllerAlias
+					ret := rpc.Return
 
-				if i := strings.Index(rpc.Param, "."); i != -1 {
-					paramAlias = rpc.Param[:i]
-					params = rpc.Param[i+1:]
-					log.Printf("%v 不是同级目录的包, 生成代码后需要手动加入\n", rpc.Param)
-				}
-				if i := strings.Index(rpc.Return, "."); i != -1 {
-					returnAlias = rpc.Return[:i]
-					ret = rpc.Return[i+1:]
-					log.Printf("%v 不是同级目录的包, 生成代码后需要手动加入\n", rpc.Return)
-				}
-				// 包没有被使用
-				if params != rpc.Param && ret != rpc.Return {
-					delete(imports, serPage)
-				}
+					if i := strings.Index(rpc.Param, "."); i != -1 {
+						paramAlias = rpc.Param[:i]
+						params = rpc.Param[i+1:]
+						log.Printf("%v 不是同级目录的包, 生成代码后需要手动加入\n", rpc.Param)
+					}
+					if i := strings.Index(rpc.Return, "."); i != -1 {
+						returnAlias = rpc.Return[:i]
+						ret = rpc.Return[i+1:]
+						log.Printf("%v 不是同级目录的包, 生成代码后需要手动加入\n", rpc.Return)
+					}
+					// 包没有被使用
+					if params != rpc.Param && ret != rpc.Return {
+						delete(imports, serPage)
+					}
 
-				str := methodStr
-				i := strings.Index(option.Key, ".")
-				method := option.Key[i+1:]
-				url := option.Val
+					str := methodStr
+					i := strings.Index(option.Key, ".")
+					method := option.Key[i+1:]
+					url := option.Val
 
-				for s, O := range map[string]string{
-					"{package}":         parser.StringToSnake(server.Name),
-					"{import}":          importsStr + "\n",
-					"{doc}":             rpc.Doc,
-					"{method}":          method,
-					"{url}":             url,
-					"{action}":          actionName,
-					"{controllerAlias}": controllerAlias,
-					"{paramAlias}":      paramAlias,
-					"{param}":           params,
-					"{returnAlias}":     returnAlias,
-					"{return}":          ret,
-				} {
-					str = strings.ReplaceAll(str, s, O)
-				}
+					for s, O := range map[string]string{
+						"{package}":         parser.StringToSnake(server.Name),
+						"{import}":          importsStr + "\n",
+						"{doc}":             rpc.Doc,
+						"{method}":          method,
+						"{url}":             url,
+						"{action}":          actionName,
+						"{controllerAlias}": controllerAlias,
+						"{paramAlias}":      paramAlias,
+						"{param}":           params,
+						"{returnAlias}":     returnAlias,
+						"{return}":          ret,
+					} {
+						str = strings.ReplaceAll(str, s, O)
+					}
 
-				err := os.WriteFile(out+"/"+parser.StringToSnake(actionName)+"_action.go", []byte(str), 0766)
-				if err != nil {
-					log.Fatal(err)
+					err := os.WriteFile(out+"/"+parser.StringToSnake(actionName)+"_action.go", []byte(str), 0766)
+					if err != nil {
+						log.Fatal(err)
+					}
 				}
 			}
 		}
@@ -269,12 +271,14 @@ func genRoutesFunc(g *ApiGroups, m map[string]string) string {
 
 	for _, server := range g.servers {
 		for rName, rpc := range server.Rpc {
-			for _, option := range rpc.Opt {
-				if strings.Index(option.Key, "http.") == 0 {
-					i := strings.Index(option.Key, ".")
-					method := option.Key[i+1:]
-					str += "\n\t\t" + homeApi + "." + method + "(\"" + option.Val + "\"):" +
-						"c." + parser.StringToSnake(server.Name) + ".GinHandle" + parser.StringToHump(rName) + ","
+			for _, options := range rpc.Opt {
+				for _, option := range options {
+					if strings.Index(option.Key, "http.") == 0 {
+						i := strings.Index(option.Key, ".")
+						method := option.Key[i+1:]
+						str += "\n\t\t" + homeApi + "." + method + "(\"" + option.Val + "\"):" +
+							"c." + parser.StringToSnake(server.Name) + ".GinHandle" + parser.StringToHump(rName) + ","
+					}
 				}
 			}
 		}

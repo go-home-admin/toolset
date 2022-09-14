@@ -40,7 +40,7 @@ type ServiceRpc struct {
 	Name   string
 	Param  string
 	Return string
-	Opt    map[string]Option
+	Opt    map[string][]Option
 }
 
 type Message struct {
@@ -272,7 +272,7 @@ func protoRpc(l []*word, offset int) (ServiceRpc, int) {
 
 	offset = offset + end + 1
 	// opt
-	opt := make(map[string]Option)
+	opt := make(map[string][]Option)
 	st, et := GetBrackets(l[offset:], "{", "}")
 	newOffset := offset + et + 1
 	nl := l[offset+st : newOffset]
@@ -287,7 +287,7 @@ func protoRpc(l []*word, offset int) (ServiceRpc, int) {
 			case "option":
 				var val Option
 				val, offset = serverOption(nl, offset)
-				opt[val.Key] = val
+				opt[val.Key] = append(opt[val.Key], val)
 			}
 		}
 	}

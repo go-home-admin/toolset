@@ -113,39 +113,47 @@ func defName(name string) string {
 }
 
 func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser, serviceOpt map[string]parser.Option) {
-	for _, option := range service.Opt {
-		urlPath := option.Val
-		if routeGroup, ok := serviceOpt["http.RouteGroup"]; ok {
-			urlPath = "$[" + routeGroup.Val + "]" + urlPath
-		}
-		var path = &openapi.Path{}
-		if o, ok := swagger.Paths[urlPath]; ok {
-			path = o
-		}
+	for _, options := range service.Opt {
+		for _, option := range options {
+			urlPath := option.Val
+			if routeGroup, ok := serviceOpt["http.RouteGroup"]; ok {
+				urlPath = "$[" + routeGroup.Val + "]" + urlPath
+			}
+			var path = &openapi.Path{}
+			if o, ok := swagger.Paths[urlPath]; ok {
+				path = o
+			}
 
-		endpoint := &openapi.Endpoint{}
-		endpoint.Description = service.Doc + option.Doc
-		endpoint.Summary = service.Doc + option.Doc
-		endpoint.Tags = strings.Split(pge, ".")
-		endpoint.Parameters = messageToParameters(service.Param, nowDirProtoc, allProtoc)
-		endpoint.Responses = map[string]*openapi.Response{
-			"200": messageToResponse(service.Return, nowDirProtoc, allProtoc),
-		}
+			endpoint := &openapi.Endpoint{}
+			endpoint.Description = service.Doc + option.Doc
+			endpoint.Summary = service.Doc + option.Doc
+			endpoint.Tags = strings.Split(pge, ".")
+			endpoint.Parameters = messageToParameters(service.Param, nowDirProtoc, allProtoc)
+			endpoint.Responses = map[string]*openapi.Response{
+				"200": messageToResponse(service.Return, nowDirProtoc, allProtoc),
+			}
 
-		switch option.Key {
-		case "http.Get":
-			path.Get = endpoint
-		case "http.Put":
-			path.Put = endpoint
-		case "http.Post":
-			path.Post = endpoint
-		case "http.Patch":
-			path.Patch = endpoint
-		case "http.Delete":
-			path.Delete = endpoint
-		}
+			switch option.Key {
+			case "http.Get":
+				path.Get = endpoint
+			case "http.Put":
+				path.Put = endpoint
+			case "http.Post":
+				path.Post = endpoint
+			case "http.Patch":
+				path.Patch = endpoint
+			case "http.Delete":
+				path.Delete = endpoint
+			case "http.Any":
+				path.Get = endpoint
+				path.Post = endpoint
+				path.Put = endpoint
+				path.Patch = endpoint
+				path.Delete = endpoint
+			}
 
-		swagger.Paths[urlPath] = path
+			swagger.Paths[urlPath] = path
+		}
 	}
 }
 
