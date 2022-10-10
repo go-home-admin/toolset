@@ -321,7 +321,7 @@ func getWordsWitchFile(path string) GoWords {
 			})
 			status = scannerStatus_NewLine
 			work = ""
-		case scannerStatus_Doc2:
+		case scannerStatus_Doc2, scannerStatus_quote, scannerStatus_quote2, scannerStatus_quote3:
 			// 多行注释未结束
 			work = work + "\n"
 		default:
