@@ -13,6 +13,43 @@ import (
 // RouteCommand @Bean
 type RouteCommand struct{}
 
+var goMethodStr = `package {package}
+
+import ({import})
+
+// {action}  {doc}
+func (receiver *Controller) {action}(req *{paramAlias}.{param}, ctx http.Context) (*{returnAlias}.{return}, error) {
+	// TODO 这里写业务
+	return &{returnAlias}.{return}{}, nil
+}
+
+// GinHandle{action} gin原始路由处理
+// http.{method}({url})
+func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
+	req := &{paramAlias}.{param}{}
+	err := ctx.ShouldBind(req)
+	context := http.NewContext(ctx)
+	if err != nil {
+		context.Fail(err)
+		return
+	}
+	
+	resp, err := receiver.{action}(req, context)
+	if err != nil {
+		context.Fail(err)
+		return
+	}
+
+	context.Success(resp)
+}
+`
+
+var goConStr = `package {package}
+
+// Controller @Bean
+type Controller struct {
+}`
+
 func (RouteCommand) Configure() command.Configure {
 	return command.Configure{
 		Name:        "make:route",
@@ -93,8 +130,8 @@ func (RouteCommand) Execute(input command.Input) {
 		}
 	}
 
-	os.RemoveAll(out)
-	os.MkdirAll(out, 0765)
+	_ = os.RemoveAll(out)
+	_ = os.MkdirAll(out, 0765)
 
 	for _, g := range agl {
 		genRoute(g, out)
@@ -116,11 +153,7 @@ func genController(server parser.Service, out string) {
 	}
 
 	if !parser.DirIsExist(out + "/controller.go") {
-		conStr := `package {package}
-
-// Controller @Bean
-type Controller struct {
-}`
+		conStr := goConStr
 		conStr = strings.ReplaceAll(conStr, "{package}", parser.StringToSnake(server.Name))
 		err := os.WriteFile(out+"/controller.go", []byte(conStr), 0760)
 		if err != nil {
@@ -128,36 +161,13 @@ type Controller struct {
 		}
 	}
 
-	methodStr := `package {package}
-
-import ({import})
-
-// {action}  {doc}
-func (receiver *Controller) {action}(req *{paramAlias}.{param}, ctx http.Context) (*{returnAlias}.{return}, error) {
-	// TODO 这里写业务
-	return &{returnAlias}.{return}{}, nil
-}
-
-// GinHandle{action} gin原始路由处理
-// http.{method}({url})
-func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
-	req := &{paramAlias}.{param}{}
-	err := ctx.ShouldBind(req)
-	context := http.NewContext(ctx)
-	if err != nil {
-		context.Fail(err)
-		return
-	}
-	
-	resp, err := receiver.{action}(req, context)
-	if err != nil {
-		context.Fail(err)
-		return
+	for s, _ := range server.Opt {
+		if s == "http.Resource" {
+			genResourceController(server, out)
+		}
 	}
 
-	context.Success(resp)
-}
-`
+	methodStr := goMethodStr
 	gin := "github.com/gin-gonic/gin"
 	http := "github.com/go-home-admin/home/app/http"
 	imports := map[string]string{gin: gin, http: http}
@@ -234,6 +244,76 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 	}
 }
 
+// 生成资源控制器
+func genResourceController(server parser.Service, out string) {
+	actionFile := out + "/resource.go"
+	if parser.DirIsExist(actionFile) {
+		return
+	}
+
+	str := `package {package}
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/go-home-admin/go-admin/app/servers/gui"
+	"github.com/go-home-admin/go-admin/app/servers/gui/form"
+	"github.com/go-home-admin/go-admin/app/servers/gui/table"
+	"github.com/go-home-admin/go-admin/generate/proto/common/grid"
+)
+
+// GinHandleResource gin原始路由处理
+func (receiver *Controller) GinHandleResource(ctx *gin.Context) {
+	NewGuiContext(ctx).ActionHandle()
+}
+
+type GuiContext struct {
+	*gui.Gin
+	*table.View
+}
+
+func NewGuiContext(ctx *gin.Context) *GuiContext {
+	guid := &GuiContext{Gin: gui.NewGui(ctx)}
+	guid.View = table.NewTable(guid)
+	guid.SetController(guid)
+	return guid
+}
+
+func (g *GuiContext) Grid(view *table.View) {
+	// view.SetDb(mysql.NewOrmUser().GetDB())
+
+	view.Column("头像", "icon").Avatar()
+	view.Column("姓名", "nickname").Width("150")
+	view.Column("性别", "sex").Width("150").Filters([]*grid.Filter{{Text: "男", Value: "1"}, {Text: "女", Value: "0"}})
+	view.Column("邮箱", "email").Width("150")
+	view.Column("注册时间", "created_at").Width("250").Sortable(true)
+
+	action := view.NewAction()
+	action.AddButton("删除").Confirm("/del?id={{ row.id }}")
+	action.AddButton("编辑").Edit()
+
+	// 设置搜索栏
+	filter := view.NewSearch()
+	filter.Input("name", "名称").Placeholder("这里是提示语").Span(12)
+	filter.Input("nick", "昵称").Span(12)
+	filter.Input("sex", "性别").Span(24)
+
+	header := view.NewHeader()
+	header.Create()
+}
+
+func (g *GuiContext) Form(f *form.DialogForm) {
+	f.Input("nickname", "名称")
+	f.Input("created_at", "注册时间")
+}
+
+`
+	str = strings.ReplaceAll(str, "{package}", parser.StringToSnake(server.Name))
+	err := os.WriteFile(actionFile, []byte(str), 0766)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func genRoute(g *ApiGroups, out string) {
 	context := make([]string, 0)
 	context = append(context, "package routes")
@@ -270,6 +350,11 @@ func genRoutesFunc(g *ApiGroups, m map[string]string) string {
 		"\n\treturn map[*" + homeApi + ".Config]func(c *" + homeGin + ".Context){"
 
 	for _, server := range g.servers {
+		for s, v := range server.Opt {
+			if s == "http.Resource" {
+				str += "\n\t\t" + homeApi + ".Any(\"" + v.Val + "\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleResource,"
+			}
+		}
 		for rName, rpc := range server.Rpc {
 			for _, options := range rpc.Opt {
 				for _, option := range options {
