@@ -241,3 +241,22 @@ func (orm *Orm{orm_table_name}) Or(fuc func(orm *Orm{orm_table_name})) *Orm{orm_
 	orm.db.Or(ormOr.db)
 	return orm
 }
+
+// Preload preload associations with given conditions
+// db.Preload("Orders|orders", "state NOT IN (?)", "cancelled").Find(&users)
+func (orm *OrmMysqlTableName) Preload(query string, args ...interface{}) *OrmMysqlTableName {
+    orm.db.Preload(home.StringToHump(query), args...)
+    return orm
+}
+
+// Joins specify Joins conditions
+// db.Joins("Account|account").Find(&user)
+// db.Joins("JOIN emails ON emails.user_id = users.id AND emails.email = ?", "jinzhu@example.org").Find(&user)
+// db.Joins("Account", DB.Select("id").Where("user_id = users.id AND name = ?", "someName").Model(&Account{}))
+func (orm *OrmMysqlTableName) Joins(query string, args ...interface{}) *OrmMysqlTableName {
+	if !strings.Contains(query, " ") {
+	    query = home.StringToHump(query)
+	}
+	orm.db.Joins(query, args...)
+	return orm
+}

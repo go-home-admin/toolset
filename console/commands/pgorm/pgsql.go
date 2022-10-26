@@ -3,8 +3,10 @@ package pgorm
 import (
 	"database/sql"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"github.com/go-home-admin/home/bootstrap/services"
+	"github.com/go-home-admin/toolset/console/commands/orm"
 	"github.com/go-home-admin/toolset/parser"
 	_ "github.com/lib/pq"
 	"log"
@@ -30,6 +32,16 @@ func GenSql(name string, conf Conf, out string) {
 	db := NewDb(conf)
 	tableColumns := db.tableColumns()
 
+	root, _ := os.Getwd()
+	file, err := os.ReadFile(root + "/config/database/" + name + ".json")
+	var relationship map[string][]*orm.Relationship
+	if err == nil {
+		err = json.Unmarshal(file, &relationship)
+		if err != nil {
+			panic("表关系JSON文件配置出错：" + err.Error())
+		}
+	}
+
 	// 计算import
 	imports := getImports(tableColumns)
 	for table, columns := range tableColumns {
@@ -38,7 +50,7 @@ func GenSql(name string, conf Conf, out string) {
 
 		str := "package " + name
 		str += "\nimport (" + imports[table] + "\n)"
-		str += "\n" + genOrmStruct(table, columns, conf)
+		str += "\n" + genOrmStruct(table, columns, conf, relationship[table])
 
 		baseFunStr := baseMysqlFuncStr
 		for old, newStr := range map[string]string{
@@ -223,10 +235,12 @@ func getImports(tableColumns map[string][]tableColumn) map[string]string {
 	for table, columns := range tableColumns {
 		// 初始引入
 		tm := map[string]string{
+			"strings":      "",
 			"gorm.io/gorm": "gorm",
 			"github.com/go-home-admin/home/bootstrap/providers": "providers",
 			"github.com/sirupsen/logrus":                        "logrus",
 			"database/sql":                                      "sql",
+			"github.com/go-home-admin/home/app":                 "home",
 		}
 		for _, column := range columns {
 			index := strings.Index(column.GoType, ".")
@@ -242,7 +256,7 @@ func getImports(tableColumns map[string][]tableColumn) map[string]string {
 	return got
 }
 
-func genOrmStruct(table string, columns []tableColumn, conf Conf) string {
+func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships []*orm.Relationship) string {
 	TableName := parser.StringToHump(table)
 
 	hasField := make(map[string]bool)
@@ -256,27 +270,44 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf) string {
 		fieldName := parser.StringToHump(column.ColumnName)
 		str += fmt.Sprintf("\n\t%v %v%v`%v` // %v", fieldName, p, column.GoType, genGormTag(column), strings.ReplaceAll(column.Comment, "\n", " "))
 	}
-	// 表依赖
-	if helper, ok := conf["helper"]; ok {
-		helperConf := helper.(map[interface{}]interface{})
-		tableConfig, ok := helperConf[table].([]interface{})
-		if ok {
-			for _, c := range tableConfig {
-				cf := c.(map[interface{}]interface{})
-				with := cf["with"]
-				tbName := parser.StringToHump(cf["table"].(string))
-				switch with {
-				case "belongs_to":
-					str += fmt.Sprintf("\n\t%v *%v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
-				case "has_one":
-					str += fmt.Sprintf("\n\t%v *%v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
-				case "has_many":
-					str += fmt.Sprintf("\n\t%v []%v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
-				case "many2many":
-					str += fmt.Sprintf("\n\t%v []%v `gorm:\"%v\"`", parser.StringToHump(cf["alias"].(string)), tbName, cf["gorm"])
-				default:
-					panic("with: belongs_to,has_one,has_many,many2many")
+	// 表关系
+	if len(relationships) > 0 {
+		for _, relationship := range relationships {
+			switch relationship.Type {
+			case "belongs_to", "has_one", "has_many", "many2many":
+			default:
+				panic("with: belongs_to,has_one,has_many,many2many")
+			}
+			tbName := "*" + parser.StringToHump(relationship.Table)
+			if relationship.Type == "has_many" || relationship.Type == "many2many" {
+				tbName = "[]" + tbName
+			}
+			fieldName := parser.StringToHump(relationship.Table)
+			if relationship.Alias != "" {
+				fieldName = parser.StringToHump(relationship.Alias)
+			}
+			str += fmt.Sprintf("\n\t%v %v", fieldName, tbName)
+			if relationship.ForeignKey != "" || relationship.ReferenceKey != "" || relationship.Type == "many2many" {
+				str += " `gorm:\""
+				if relationship.Type == "many2many" {
+					if relationship.RelationshipTable == "" {
+						panic("表" + relationship.Table + "的many2many必须声明连接表")
+					}
+					str += "many2many:" + relationship.RelationshipTable + ";"
+					if relationship.JoinForeignKey != "" {
+						str += "joinForeignKey:" + relationship.JoinForeignKey + ";"
+					}
+					if relationship.JoinTargetKey != "" {
+						str += "joinReferences:" + relationship.JoinTargetKey + ";"
+					}
 				}
+				if relationship.ForeignKey != "" {
+					str += "foreignKey:" + relationship.ForeignKey + ";"
+				}
+				if relationship.ReferenceKey != "" {
+					str += "references:" + relationship.ReferenceKey + ";"
+				}
+				str += "\"`"
 			}
 		}
 	}
