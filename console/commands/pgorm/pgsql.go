@@ -64,7 +64,6 @@ func GenSql(name string, conf Conf, out string) {
 		str += baseFunStr
 		str += genFieldFunc(table, columns)
 		str += genListFunc(table, columns)
-		str += genWithFunc(table, columns, conf)
 		err := os.WriteFile(file+"_gen.go", []byte(str), 0766)
 		if err != nil {
 			log.Fatal(err)
@@ -95,36 +94,6 @@ func genListFunc(table string, columns []tableColumn) string {
 				"\n\t}" +
 				"\n\treturn got" +
 				"\n}"
-		}
-	}
-	return str
-}
-
-func genWithFunc(table string, columns []tableColumn, conf Conf) string {
-	TableName := parser.StringToHump(table)
-	str := ""
-	if helper, ok := conf["helper"]; ok {
-		helperConf := helper.(map[interface{}]interface{})
-		tableConfig, ok := helperConf[table].([]interface{})
-		if ok {
-			for _, c := range tableConfig {
-				cf := c.(map[interface{}]interface{})
-				with := cf["with"]
-				tbName := parser.StringToHump(cf["table"].(string))
-				switch with {
-				case "many2many":
-
-				default:
-					str += "\nfunc (orm *Orm" + TableName + ") Joins" + tbName + "(args ...interface{}) *Orm" + TableName + " {" +
-						"\n\torm.db.Joins(\"" + cf["alias"].(string) + "\", args...)" +
-						"\n\treturn orm" +
-						"\n}"
-					str += "\nfunc (orm *Orm" + TableName + ") Preload" + tbName + "(args ...interface{}) *Orm" + TableName + " {" +
-						"\n\torm.db.Preload(\"" + cf["alias"].(string) + "\", args...)" +
-						"\n\treturn orm" +
-						"\n}"
-				}
-			}
 		}
 	}
 	return str
