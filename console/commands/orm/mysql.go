@@ -570,7 +570,7 @@ func NewDb(conf map[interface{}]interface{}) *DB {
 		"%s:%s@tcp(%s)/%s?interpolateParams=true",
 		config.GetString("username", "root"),
 		config.GetString("password", "123456"),
-		config.GetString("host", "localhost:"+config.GetString("port", "3306")),
+		config.GetString("host", "localhost")+":"+config.GetString("port", "3306"),
 		config.GetString("database", "demo"),
 	))
 	if err != nil {
