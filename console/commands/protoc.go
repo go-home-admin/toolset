@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -48,11 +49,6 @@ var show = false
 func (ProtocCommand) Execute(input command.Input) {
 	show = input.GetOption("debug") == "true"
 	root := getRootPath()
-	_, err := exec.LookPath("protoc")
-	if err != nil {
-		log.Printf("'protoc' 未安装; brew install protobuf")
-		return
-	}
 	out := input.GetOption("go_out")
 	out = strings.Replace(out, "@root", root, 1)
 	outTemp, _ := filepath.Abs(out + "/../temp")
@@ -79,7 +75,7 @@ func (ProtocCommand) Execute(input command.Input) {
 			cods = append(cods, "--go_out="+outTemp)
 			cods = append(cods, info.Path)
 
-			Cmd("protoc", cods)
+			ProtocCmd(cods)
 		}
 	}
 
@@ -264,6 +260,43 @@ func getDocTag(doc string) ([]tag, map[string]tag) {
 	}
 
 	return got, mapt
+}
+
+func ProtocCmd(params []string) {
+	var commandName string
+	root := getRootPath()
+	switch runtime.GOOS {
+	case "darwin":
+		commandName = root + "/bin/protoc-mac"
+	case "windows":
+		commandName = root + "/bin/protoc-win.exe"
+	default:
+		commandName = root + "/bin/protoc-linux"
+	}
+
+	_, err := exec.LookPath(commandName)
+	if err != nil {
+		commandName = "protoc"
+		_, err = exec.LookPath("protoc")
+		if err != nil {
+			log.Println("'protoc' 未安装; https://github.com/protocolbuffers/protobuf/releases")
+			return
+		}
+	}
+
+	// 打印真实命令
+	if show {
+		PrintCmd(commandName, params)
+	}
+
+	cmd := exec.Command(commandName, params...)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
 func Cmd(commandName string, params []string) {

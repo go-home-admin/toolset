@@ -7,3 +7,6 @@ export PATH := $(GOBIN):$(PATH)
 build:
 	go build -ldflags="-w -s" -o  $(GOBIN)/toolset ./
 
+build-win:
+	go build -ldflags="-w -s" -o  $(GOBIN)/toolset.exe ./
+
