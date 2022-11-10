@@ -287,8 +287,8 @@ func (g *GuiContext) Grid(view *table.View) {
 	view.Column("注册时间", "created_at").Width("250").Sortable(true)
 
 	action := view.NewAction()
-	action.AddButton("删除").Confirm("/del?id={{ row.id }}")
-	action.AddButton("编辑").Edit()
+	action.AddButton("删除").Delete().Options("type", "danger")
+	action.AddButton("编辑").Edit().Options("type", "primary")
 
 	// 设置搜索栏
 	filter := view.NewSearch()
