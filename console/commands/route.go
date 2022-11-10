@@ -275,7 +275,7 @@ func NewGuiContext(ctx *gin.Context) *GuiContext {
 	guid.View = table.NewTable(guid)
 	guid.SetController(guid)
 	// 你要编辑的默认sql条件
-	// guid.SetDb(mysql.NewOrmUser().GetDB())
+	// guid.SetDb(mysql.NewOrmUser())
 	return guid
 }
 

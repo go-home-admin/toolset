@@ -7,6 +7,10 @@ type OrmMysqlTableName struct {
 	db *gorm.DB
 }
 
+func (orm *OrmMysqlTableName) TableName() string {
+	return "{table_name}"
+}
+
 func NewOrmMysqlTableName() *OrmMysqlTableName {
 	orm := &OrmMysqlTableName{}
 	orm.db = providers.NewMysqlProvider().GetBean("{db}").(*gorm.DB).Model(&MysqlTableName{})
