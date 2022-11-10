@@ -258,7 +258,6 @@ import (
 	"github.com/go-home-admin/go-admin/app/servers/gui"
 	"github.com/go-home-admin/go-admin/app/servers/gui/form"
 	"github.com/go-home-admin/go-admin/app/servers/gui/table"
-	"github.com/go-home-admin/go-admin/generate/proto/common/grid"
 )
 
 // GinHandleResource gin原始路由处理
@@ -267,14 +266,16 @@ func (receiver *Controller) GinHandleResource(ctx *gin.Context) {
 }
 
 type GuiContext struct {
-	*gui.Gin
+	*gui.GinHandle
 	*table.View
 }
 
 func NewGuiContext(ctx *gin.Context) *GuiContext {
-	guid := &GuiContext{Gin: gui.NewGui(ctx)}
+	guid := &GuiContext{GinHandle: gui.NewGui(ctx)}
 	guid.View = table.NewTable(guid)
 	guid.SetController(guid)
+	// 你要编辑的默认sql条件
+	// guid.SetDb(mysql.NewOrmUser().GetDB())
 	return guid
 }
 
@@ -283,7 +284,7 @@ func (g *GuiContext) Grid(view *table.View) {
 
 	view.Column("头像", "icon").Avatar()
 	view.Column("姓名", "nickname").Width("150")
-	view.Column("性别", "sex").Width("150").Filters([]*grid.Filter{{Text: "男", Value: "1"}, {Text: "女", Value: "0"}})
+	view.Column("性别", "sex").Width("150").Filters([]gui.Filter{{Text: "男", Value: "1"}, {Text: "女", Value: "0"}})
 	view.Column("邮箱", "email").Width("150")
 	view.Column("注册时间", "created_at").Width("250").Sortable(true)
 
@@ -293,9 +294,9 @@ func (g *GuiContext) Grid(view *table.View) {
 
 	// 设置搜索栏
 	filter := view.NewSearch()
-	filter.Input("name", "名称").Placeholder("这里是提示语").Span(12)
-	filter.Input("nick", "昵称").Span(12)
-	filter.Input("sex", "性别").Span(24)
+	filter.Input("name", "名称").Span("12")
+	filter.Input("nick", "昵称").Span("12")
+	filter.Input("sex", "性别").Span("24")
 
 	header := view.NewHeader()
 	header.Create()
