@@ -27,7 +27,7 @@ func (BeanCommand) Configure() command.Configure {
 			Option: []command.ArgParam{
 				{
 					Name:        "name",
-					Description: "跳过目录",
+					Description: "New函数别名, 如果兼容旧的项目可以设置",
 					Default:     "New{name}",
 				},
 				{
@@ -62,7 +62,7 @@ func (BeanCommand) Execute(input command.Input) {
 
 	for dir, fileParsers := range parser.NewGoParserForDir(scan) {
 		isSkip := false
-		for s, _ := range skip {
+		for s := range skip {
 			if strings.Index(dir, s) != -1 {
 				isSkip = true
 				break
@@ -228,7 +228,7 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 				beanValue = beanValue + ", " + tag.Get(2)
 			}
 			beanValueNextVal := strings.Trim(beanValue[startTemp+1:], ")")
-			got = got + ".GetBean(" + providers + "GetBean(\"" + beanValueNextName + "\").(" + providers + "Bean).GetBean(\"" + beanValueNextVal + "\").(string))"
+			got = got + ".GetBean(*" + providers + "GetBean(\"" + beanValueNextName + "\").(" + providers + "Bean).GetBean(\"" + beanValueNextVal + "\").(*string))"
 		} else {
 			got = got + ".GetBean(\"" + beanValue + "\")"
 		}
