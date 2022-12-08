@@ -13,7 +13,7 @@ func (orm *OrmMysqlTableName) TableName() string {
 
 func NewOrmMysqlTableName() *OrmMysqlTableName {
 	orm := &OrmMysqlTableName{}
-	orm.db = providers.NewMysqlProvider().GetBean("{db}").(*gorm.DB).Model(&MysqlTableName{})
+	orm.db = providers.GetBean("mysql, {db}").(*gorm.DB).Model(&MysqlTableName{})
 	return orm
 }
 
