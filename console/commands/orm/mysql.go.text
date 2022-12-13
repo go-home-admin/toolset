@@ -14,7 +14,7 @@ func (orm *OrmMysqlTableName) TableName() string {
 func NewOrmMysqlTableName(txs ...*gorm.DB) *OrmMysqlTableName {
 	var tx *gorm.DB
 	if len(txs) == 0 {
-		tx = providers.GetBean("mysql, mysql").(*gorm.DB).Model(&Player{})
+		tx = providers.GetBean("mysql, mysql").(*gorm.DB).Model(&MysqlTableName{})
 	} else {
 		tx = txs[0]
 	}
