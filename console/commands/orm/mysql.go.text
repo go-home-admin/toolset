@@ -11,10 +11,14 @@ func (orm *OrmMysqlTableName) TableName() string {
 	return "{table_name}"
 }
 
-func NewOrmMysqlTableName() *OrmMysqlTableName {
-	orm := &OrmMysqlTableName{}
-	orm.db = providers.GetBean("mysql, {db}").(*gorm.DB).Model(&MysqlTableName{})
-	return orm
+func NewOrmMysqlTableName(txs ...*gorm.DB) *OrmMysqlTableName {
+	var tx *gorm.DB
+	if len(txs) == 0 {
+		tx = providers.GetBean("mysql, mysql").(*gorm.DB).Model(&Player{})
+	} else {
+		tx = txs[0]
+	}
+	return &OrmMysqlTableName{db: tx}
 }
 
 func (orm *OrmMysqlTableName) GetDB() *gorm.DB {
