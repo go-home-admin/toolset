@@ -359,7 +359,9 @@ func handleTypes(l []*word, offset int, d *GoFileParser) (GoType, int) {
 					attr.Tag = make(map[string]TagDoc)
 					for _, tagStrArr := range getArrGoTag(s) {
 						td := tagStrArr[1]
-						attr.Tag[tagStrArr[0]] = TagDoc(td[1 : len(td)-1])
+						if len(td) > 1 {
+							attr.Tag[tagStrArr[0]] = TagDoc(td[1 : len(td)-1])
+						}
 					}
 				} else if attr.TypeName == "" {
 					attr.TypeName = s
