@@ -86,7 +86,7 @@ func genListFunc(table string, columns []tableColumn) string {
 	str := "\ntype " + TableName + "List []*" + TableName
 	for _, column := range columns {
 		// 索引，或者枚举字段
-		if strInStr(column.COLUMN_NAME, []string{"id", "code"}) {
+		if strInStr(column.COLUMN_NAME, []string{"id", "code"}) || strInStr(column.COLUMN_COMMENT, []string{"@index"}) {
 			goType := column.GoType
 			if *column.IS_NULLABLE == "YES" {
 				goType = "*" + goType
