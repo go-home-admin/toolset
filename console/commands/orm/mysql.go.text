@@ -236,6 +236,20 @@ func (orm *OrmMysqlTableName) Where(query interface{}, args ...interface{}) *Orm
 	return orm
 }
 
+func (orm *OrmMysqlTableName) Select(query interface{}, args ...interface{}) *OrmMysqlTableName {
+	orm.db.Select(query, args...)
+	return orm
+}
+
+func (orm *OrmMysqlTableName) Sum(field string) int64 {
+	type result struct {
+		S int64 `json:"s"`
+	}
+	ret := result{}
+	orm.db.Select(fmt.Sprintf("SUM(`%v`) AS s", field)).Scan(&ret)
+	return ret.S
+}
+
 func (orm *OrmMysqlTableName) And(fuc func(orm *OrmMysqlTableName)) *OrmMysqlTableName {
 	ormAnd := NewOrmMysqlTableName()
 	fuc(ormAnd)
