@@ -246,7 +246,7 @@ func (orm *OrmMysqlTableName) Sum(field string) int64 {
 		S int64 `json:"s"`
 	}
 	ret := result{}
-	orm.db.Select(fmt.Sprintf("SUM(`%v`) AS s", field)).Scan(&ret)
+	orm.db.Select("SUM(`"+field+"`) AS s").Scan(&ret)
 	return ret.S
 }
 
