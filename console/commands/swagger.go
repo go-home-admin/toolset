@@ -32,6 +32,21 @@ func (SwaggerCommand) Configure() command.Configure {
 					Description: "生成文件到指定目录",
 					Default:     "@root/web/swagger.json",
 				},
+				{
+					Name:        "title",
+					Description: "文档标题",
+					Default:     "go-home-admin",
+				},
+				{
+					Name:        "description",
+					Description: "文档描述",
+					Default:     "面向工程的框架",
+				},
+				{
+					Name:        "host",
+					Description: "文档生成的host",
+					Default:     "github.com/go-home-admin",
+				},
 			},
 		},
 	}
@@ -48,12 +63,12 @@ func (SwaggerCommand) Execute(input command.Input) {
 	swagger := openapi.Spec{
 		Swagger: "2.0",
 		Info: openapi.Info{
-			Title:       "go-home-admin",
-			Description: "面向工程的框架",
+			Title:       input.GetOption("title"),
+			Description: input.GetOption("description"),
 			Version:     "1.0",
 		},
-		Host:     "github.com/go-home-admin",
-		Schemes:  []string{"https"},
+		Host:     input.GetOption("host"),
+		Schemes:  []string{"http", "https"},
 		BasePath: "/",
 		Produces: []string{"application/json"},
 		Paths:    make(map[string]*openapi.Path),
