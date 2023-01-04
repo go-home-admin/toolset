@@ -267,7 +267,11 @@ func (orm *OrmMysqlTableName) Or(fuc func(orm *OrmMysqlTableName)) *OrmMysqlTabl
 // Preload preload associations with given conditions
 // db.Preload("Orders|orders", "state NOT IN (?)", "cancelled").Find(&users)
 func (orm *OrmMysqlTableName) Preload(query string, args ...interface{}) *OrmMysqlTableName {
-    orm.db.Preload(home.StringToHump(query), args...)
+    arr := strings.split(query, ".")
+    for i, _ := range arr {
+        arr[i] = home.StringToHump(arr[i])
+    }
+    orm.db.Preload(strings.Join(arr, "."), args...)
     return orm
 }
 
