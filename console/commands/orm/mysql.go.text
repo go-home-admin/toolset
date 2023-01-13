@@ -110,6 +110,11 @@ func (orm *OrmMysqlTableName) Order(value interface{}) *OrmMysqlTableName {
 	return orm
 }
 
+func (orm *OrmMysqlTableName) Group(name string) *OrmMysqlTableName {
+	orm.db.Group(name)
+	return orm
+}
+
 func (orm *OrmMysqlTableName) Limit(limit int) *OrmMysqlTableName {
 	orm.db.Limit(limit)
 	return orm
