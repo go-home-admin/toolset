@@ -95,6 +95,15 @@ func (orm *OrmMysqlTableName) Exec(sql string, values ...interface{}) *gorm.DB {
 	return orm.db.Exec(sql, values...)
 }
 
+// Exists 检索对象是否存在
+func (orm *OrmMysqlTableName) Exists() (bool, error) {
+	dest := &struct {
+		H int `json:"h"`
+	}{}
+	db := orm.db.Select("1 as h").Limit(1).Find(dest)
+	return dest.H == 1, db.Error
+}
+
 // ------------ 以下是单表独有的函数, 便捷字段条件, Laravel风格操作 ---------
 
 func (orm *OrmMysqlTableName) Insert(row *MysqlTableName) error {
