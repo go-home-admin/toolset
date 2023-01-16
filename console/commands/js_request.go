@@ -6,7 +6,7 @@ import (
 	"github.com/ctfang/command"
 	"github.com/go-home-admin/toolset/console/commands/openapi"
 	"github.com/go-home-admin/toolset/parser"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"regexp"
@@ -16,6 +16,8 @@ import (
 
 // Js @Bean
 type Js struct{}
+
+var isResponse bool
 
 func (j *Js) Configure() command.Configure {
 	return command.Configure{
@@ -53,10 +55,10 @@ func (j *Js) Execute(input command.Input) {
 		res, _ := http.DefaultClient.Do(req)
 		defer res.Body.Close()
 		//得到返回结果
-		body, _ := ioutil.ReadAll(res.Body)
+		body, _ := io.ReadAll(res.Body)
 		inSwaggerStr = string(body)
 	} else {
-		body, _ := ioutil.ReadFile(in)
+		body, _ := os.ReadFile(in)
 		inSwaggerStr = string(body)
 	}
 	out := input.GetOption("out")
@@ -84,6 +86,7 @@ func (j *Js) Execute(input command.Input) {
 		GlobalOptions: nil,
 	}
 	_ = json.Unmarshal([]byte(inSwaggerStr), &swagger)
+	fixSwaggerType(&swagger)
 
 	tag := input.GetOption("tag")
 	str := `import http from "@/utils/request";
@@ -93,6 +96,15 @@ import config from "@/config";
 		paths := swagger.Paths[url]
 		re, _ := regexp.Compile("\\$\\[.+\\]")
 		url = re.ReplaceAllString(url, "")
+		url, funcName, params := analysisUrl(url)
+		urlParams := make([]*openapi.Parameter, 0)
+		for _, p := range params {
+			urlParams = append(urlParams, &openapi.Parameter{
+				Name:     p,
+				Required: true,
+				Type:     "string",
+			})
+		}
 		methods := make([]makeJsCache, 0)
 		methods = append(methods, makeJsCache{e: paths.Get, cm: canMakeJs(paths.Get, tag), method: "get"})
 		methods = append(methods, makeJsCache{e: paths.Put, cm: canMakeJs(paths.Put, tag), method: "put"})
@@ -101,28 +113,52 @@ import config from "@/config";
 		methods = append(methods, makeJsCache{e: paths.Delete, cm: canMakeJs(paths.Delete, tag), method: "delete"})
 		for _, method := range methods {
 			if method.cm {
+				isResponse = false
+				var paramNames []string
+				paramStr := genJsRequest(method.e.Parameters, swagger)
+				var dataStr string
+				if paramStr != "" {
+					paramNames = append(paramNames, "data")
+					dataStr = ", data"
+				}
+				if len(urlParams) > 0 {
+					for _, urlParam := range urlParams {
+						paramStr += "\n * @param " + urlParam.Name + " " + urlParam.Type
+						paramNames = append(paramNames, urlParam.Name)
+					}
+				}
+				var response string
+				if _, ok := method.e.Responses["200"]; ok {
+					if method.e.Responses["200"].Schema != nil {
+						isResponse = true
+						response = getObjectStrFromRef(method.e.Responses["200"].Schema.Ref, swagger)
+					}
+				}
 				str += fmt.Sprintf(`
 /**
  * %v%v
- * @returns {Promise<{code:Number,data:{},message:string}>}
- * @constructor
+ * @returns {Promise<{code:Number,data:%v,message:string}>}
+ * @callback
  */
-export async function %v%v(data) {
-	return await http.%v(config.API_URL + "%v", data);
+export async function %v%v(%v) {
+	return await http.%v(%v%v);
 }
 `,
 					method.e.Description,
-					genJsRequest(method.e.Parameters),
-					parser.StringToHump(strings.Trim(strings.ReplaceAll(url, "/", "_"), "_")),
+					paramStr,
+					response,
+					parser.StringToHump(strings.Trim(strings.ReplaceAll(funcName, "/", "_"), "_")),
 					parser.StringToHump(method.method),
+					strings.Join(paramNames, ", "),
 					method.method,
 					url,
+					dataStr,
 				)
 			}
 		}
 	}
 	fmt.Println(out)
-	os.WriteFile(out, []byte(str), 0766)
+	_ = os.WriteFile(out, []byte(str), 0766)
 }
 
 func sortPathMap(m map[string]*openapi.Path) []string {
@@ -135,21 +171,29 @@ func sortPathMap(m map[string]*openapi.Path) []string {
 	return keys
 }
 
-func genJsRequest(p openapi.Parameters) string {
+func genJsRequest(p openapi.Parameters, swagger openapi.Spec) string {
 	if len(p) == 0 {
 		return ""
 	}
 	str := "\n * @param {{"
 	for i, parameter := range p {
-		t := "{}"
+		t := parameter.Type
 		switch parameter.Type {
-		case "integer":
-			t = "Number"
-		case "string":
-			t = "string"
+		case "integer", "Number":
+			t = "number"
+		case "array":
+			t = "[]"
+			if parameter.Format != "" {
+				t = parameter.Format + t
+			} else if parameter.Items != nil {
+				t = getObjectStrFromRef(parameter.Items.Ref, swagger) + t
+			}
 		}
 		if i != 0 {
 			str += ","
+		}
+		if !parameter.Required {
+			parameter.Name = parameter.Name + "?"
 		}
 		str += fmt.Sprintf(`%v:%v`, parameter.Name, t)
 	}
@@ -178,4 +222,109 @@ func canMakeJs(e *openapi.Endpoint, tag string) bool {
 	}
 
 	return makeJs
+}
+
+func analysisUrl(url string) (newUrl string, funcName string, params []string) {
+	re, _ := regexp.Compile("/:([^/\\n\\r])+")
+	funcName = url
+	newUrl = fmt.Sprintf("`${config.API_URL}%v`", url)
+	for _, s := range re.FindAllString(funcName, -1) {
+		p := strings.Replace(s, "/:", "", 1)
+		params = append(params, p)
+		funcName = strings.Replace(funcName, s, "_"+p, 1)
+		newUrl = strings.Replace(newUrl, s, "/${"+p+"}", 1)
+	}
+	return
+}
+
+func fixSwaggerType(swagger *openapi.Spec) {
+	for url, path := range swagger.Paths {
+		if path.Get != nil {
+			for i, parameter := range path.Get.Parameters {
+				if parameter.Schema != nil {
+					key := strings.Replace(parameter.Schema.Ref, "#/definitions/", "", 1)
+					if _, ok := swagger.Definitions[key]; ok {
+						swagger.Paths[url].Get.Parameters[i].Type = swagger.Definitions[key].Format
+					}
+				}
+				swagger.Paths[url].Get.Parameters[i].Type = strings.ToLower(swagger.Paths[url].Get.Parameters[i].Type)
+			}
+		}
+		if path.Post != nil {
+			for i, parameter := range path.Post.Parameters {
+				if parameter.Schema != nil {
+					key := strings.Replace(parameter.Schema.Ref, "#/definitions/", "", 1)
+					if _, ok := swagger.Definitions[key]; ok {
+						swagger.Paths[url].Post.Parameters[i].Type = swagger.Definitions[key].Format
+					}
+				}
+				swagger.Paths[url].Post.Parameters[i].Type = strings.ToLower(swagger.Paths[url].Post.Parameters[i].Type)
+			}
+		}
+		if path.Put != nil {
+			for i, parameter := range path.Put.Parameters {
+				if parameter.Schema != nil {
+					key := strings.Replace(parameter.Schema.Ref, "#/definitions/", "", 1)
+					if _, ok := swagger.Definitions[key]; ok {
+						swagger.Paths[url].Put.Parameters[i].Type = swagger.Definitions[key].Format
+					}
+				}
+				swagger.Paths[url].Put.Parameters[i].Type = strings.ToLower(swagger.Paths[url].Put.Parameters[i].Type)
+			}
+		}
+		if path.Patch != nil {
+			for i, parameter := range path.Patch.Parameters {
+				if parameter.Schema != nil {
+					key := strings.Replace(parameter.Schema.Ref, "#/definitions/", "", 1)
+					if _, ok := swagger.Definitions[key]; ok {
+						swagger.Paths[url].Patch.Parameters[i].Type = swagger.Definitions[key].Format
+					}
+				}
+				swagger.Paths[url].Patch.Parameters[i].Type = strings.ToLower(swagger.Paths[url].Patch.Parameters[i].Type)
+			}
+		}
+		if path.Delete != nil {
+			for i, parameter := range path.Delete.Parameters {
+				if parameter.Schema != nil {
+					key := strings.Replace(parameter.Schema.Ref, "#/definitions/", "", 1)
+					if _, ok := swagger.Definitions[key]; ok {
+						swagger.Paths[url].Delete.Parameters[i].Type = swagger.Definitions[key].Format
+					}
+				}
+			}
+		}
+	}
+}
+
+func getObjectStrFromRef(ref string, swagger openapi.Spec) string {
+	str := "{"
+	ref = strings.Replace(ref, "#/definitions/", "", 1)
+	var params []string
+	if _, ok := swagger.Definitions[ref]; ok {
+		for key, schema := range swagger.Definitions[ref].Properties {
+			if !isResponse && !parser.InArrString(key, swagger.Definitions[ref].Required) {
+				key = key + "?"
+			}
+			params = append(params, fmt.Sprintf(`%v:%v`, key, getJsType(schema, swagger)))
+		}
+	}
+	str += strings.Join(params, ",")
+	str += "}"
+	return str
+}
+
+func getJsType(schema *openapi.Schema, swagger openapi.Spec) string {
+	t := schema.Type
+	switch schema.Type {
+	case "integer", "Number":
+		t = "number"
+	case "array":
+		t = "[]"
+		if schema.Items != nil {
+			t = getObjectStrFromRef(schema.Items.Ref, swagger) + t
+		}
+	case "object":
+		t = getObjectStrFromRef(schema.Items.Ref, swagger)
+	}
+	return t
 }
