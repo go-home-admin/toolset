@@ -278,7 +278,7 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 	for _, option := range message.Attr {
 		doc, isRequired := filterRequired(option.Doc)
 		doc = getTitle(doc)
-		if !isRequired {
+		if isRequired {
 			requireArr = append(requireArr, option.Name)
 		}
 		if option.Repeated {
