@@ -305,7 +305,7 @@ func getObjectStrFromRef(ref string, swagger openapi.Spec) string {
 			if !isResponse && !parser.InArrString(key, swagger.Definitions[ref].Required) {
 				key = key + "?"
 			}
-			params = append(params, fmt.Sprintf(`%v:%v`, key, getJsType(schema, swagger)))
+			params = append(params, fmt.Sprintf(`%v:%v`, key, getJsType(ref, schema, swagger)))
 		}
 	}
 	str += strings.Join(params, ",")
@@ -313,7 +313,7 @@ func getObjectStrFromRef(ref string, swagger openapi.Spec) string {
 	return str
 }
 
-func getJsType(schema *openapi.Schema, swagger openapi.Spec) string {
+func getJsType(preRef string, schema *openapi.Schema, swagger openapi.Spec) string {
 	t := schema.Type
 	switch schema.Type {
 	case "integer", "Number":
@@ -321,7 +321,11 @@ func getJsType(schema *openapi.Schema, swagger openapi.Spec) string {
 	case "array":
 		t = "[]"
 		if schema.Items != nil {
-			t = getObjectStrFromRef(schema.Items.Ref, swagger) + t
+			if preRef == strings.Replace(schema.Items.Ref, "#/definitions/", "", 1) {
+				t = "{}" + t
+			} else {
+				t = getObjectStrFromRef(schema.Items.Ref, swagger) + t
+			}
 		}
 	case "object":
 		t = getObjectStrFromRef(schema.Items.Ref, swagger)
