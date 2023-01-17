@@ -102,6 +102,41 @@ func (SwaggerCommand) Execute(input command.Input) {
 			}
 		}
 	}
+	// 检查对象引用, 如果发现引用没有在定义的包，有可能是标准库等，补充个空对象
+	like := make(map[string]bool)
+	for _, schema := range swagger.Paths {
+		for _, parameter := range schema.Parameters {
+			like[parameter.Ref] = true
+		}
+		if schema.Get != nil {
+			for _, parameter := range schema.Get.Responses {
+				like[parameter.Schema.Ref] = true
+			}
+		}
+		if schema.Post != nil {
+			for _, parameter := range schema.Post.Responses {
+				like[parameter.Schema.Ref] = true
+			}
+		}
+	}
+	for _, schema := range swagger.Definitions {
+		for _, parameter := range schema.Properties {
+			like[parameter.Ref] = true
+			if parameter.Items != nil {
+				like[parameter.Items.Ref] = true
+			}
+		}
+	}
+
+	for schema, _ := range like {
+		name := strings.ReplaceAll(schema, "#/definitions/", "")
+		if _, ok := swagger.Definitions[name]; !ok {
+			swagger.Definitions[name] = &openapi.Schema{
+				Type: "object",
+			}
+		}
+	}
+
 	by, err := json.Marshal(swagger)
 	if !parser.DirIsExist(path2.Dir(out)) {
 		_ = os.MkdirAll(path2.Dir(out), 0760)
