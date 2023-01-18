@@ -246,7 +246,7 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 		}
 		hasField[column.COLUMN_NAME] = true
 		fieldName := parser.StringToHump(column.COLUMN_NAME)
-		str += fmt.Sprintf("\n\t%v %v%v`%v` // %v", fieldName, p, column.GoType, genGormTag(column), strings.ReplaceAll(column.COLUMN_COMMENT, "\n", " "))
+		str += fmt.Sprintf("\n\t%v %v%v`%v json:\"%v\"` // %v", fieldName, p, column.GoType, genGormTag(column), column.COLUMN_NAME, strings.ReplaceAll(column.COLUMN_COMMENT, "\n", " "))
 	}
 	// 表关系
 	if len(relationships) > 0 {
