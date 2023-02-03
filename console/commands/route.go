@@ -152,18 +152,18 @@ func genController(server parser.Service, out string) {
 		_ = os.MkdirAll(out, 0760)
 	}
 
+	for s, _ := range server.Opt {
+		if s == "http.Resource" {
+			genResourceController(server, out)
+		}
+	}
+
 	if !parser.DirIsExist(out + "/controller.go") {
 		conStr := goConStr
 		conStr = strings.ReplaceAll(conStr, "{package}", parser.StringToSnake(server.Name))
 		err := os.WriteFile(out+"/controller.go", []byte(conStr), 0760)
 		if err != nil {
 			panic(err)
-		}
-	}
-
-	for s, _ := range server.Opt {
-		if s == "http.Resource" {
-			genResourceController(server, out)
 		}
 	}
 
@@ -246,7 +246,7 @@ func genController(server parser.Service, out string) {
 
 // 生成资源控制器
 func genResourceController(server parser.Service, out string) {
-	actionFile := out + "/resource.go"
+	actionFile := out + "/curd.go"
 	if parser.DirIsExist(actionFile) {
 		return
 	}
@@ -255,54 +255,40 @@ func genResourceController(server parser.Service, out string) {
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/go-home-admin/go-admin/app/servers/gui"
-	"github.com/go-home-admin/go-admin/app/servers/gui/form"
-	"github.com/go-home-admin/go-admin/app/servers/gui/table"
+	"github.com/go-home-admin/amis"
 )
 
-// GinHandleResource gin原始路由处理
-func (receiver *Controller) GinHandleResource(ctx *gin.Context) {
-	NewGuiContext(ctx).ActionHandle()
+func (c *CrudContext) Common() {
+	// c.SetDb(admin.NewOrmAdminMenu())
 }
 
-type GuiContext struct {
-	*gui.GinHandle
-	*table.View
+func (c *CrudContext) Table(curd *amis.Crud) {
+	curd.Column("自增", "id")
+	curd.Column("文本", "text")
+	curd.Column("图片", "image").Image()
+	curd.Column("日期", "date").Date()
+	curd.Column("进度", "progress").Progress()
+	curd.Column("状态", "status").Status()
+	curd.Column("开关", "switch").Switch()
+	curd.Column("映射", "mapping").Mapping(map[string]string{})
+	curd.Column("List", "list").List()
 }
 
-func NewGuiContext(ctx *gin.Context) *GuiContext {
-	guid := &GuiContext{GinHandle: gui.NewGui(ctx)}
-	guid.View = table.NewTable(guid)
-	guid.SetController(guid)
-	// 你要编辑的默认sql条件
-	// guid.SetDb(mysql.NewOrmUser())
-	return guid
+func (c *CrudContext) Form(form *amis.Form) {
+	form.Input("text", "文本")
+	form.Input("image", "图片")
+
 }
 
-func (g *GuiContext) Grid(view *table.View) {
-	view.Column("头像", "icon").Avatar()
-	view.Column("姓名", "nickname").Width("150")
-	view.Column("性别", "sex").Width("150").Filters([]gui.Filter{{Text: "男", Value: "1"}, {Text: "女", Value: "0"}})
-	view.Column("邮箱", "email").Width("150")
-	view.Column("注册时间", "created_at").Width("250").Sortable(true)
-
-	action := view.NewAction()
-	action.AddButton("删除").Delete().Options("type", "danger")
-	action.AddButton("编辑").Edit().Options("type", "primary")
-
-	// 设置搜索栏
-	filter := view.NewSearch()
-	filter.Input("name", "名称").Span("12")
-	filter.Input("nick", "昵称").Span("12")
-	filter.Input("sex", "性别").Span("24")
-
-	header := view.NewHeader()
-	header.Create()
+func (c *Controller) GinHandleCurd(ctx *gin.Context) {
+	var crud = &CrudContext{}
+	crud.CurdController.Context = ctx
+	crud.CurdController.Crud = crud
+	amis.GinHandleCurd(ctx, crud)
 }
 
-func (g *GuiContext) Form(f *form.DialogForm) {
-	f.Input("nickname", "名称")
-	f.Input("created_at", "注册时间")
+type CrudContext struct {
+	amis.CurdController
 }
 
 `
@@ -351,8 +337,8 @@ func genRoutesFunc(g *ApiGroups, m map[string]string) string {
 	for _, server := range g.servers {
 		for s, v := range server.Opt {
 			if s == "http.Resource" {
-				str += "\n\t\t" + homeApi + ".Get(\"" + v.Val + "\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleResource,"
-				str += "\n\t\t" + homeApi + ".Any(\"" + v.Val + "/:action\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleResource,"
+				str += "\n\t\t" + homeApi + ".Get(\"" + v.Val + "\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
+				str += "\n\t\t" + homeApi + ".Any(\"" + v.Val + "/:action\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
 			}
 		}
 		for rName, rpc := range server.Rpc {
