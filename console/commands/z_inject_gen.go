@@ -8,6 +8,7 @@ import (
 var _BeanCommandSingle *BeanCommand
 var _CurdCommandSingle *CurdCommand
 var _DevCommandSingle *DevCommand
+var _GrpcCommandSingle *GrpcCommand
 var _JsSingle *Js
 var _MongoCommandSingle *MongoCommand
 var _OrmCommandSingle *OrmCommand
@@ -20,6 +21,7 @@ func GetAllProvider() []interface{} {
 		NewBeanCommand(),
 		NewCurdCommand(),
 		NewDevCommand(),
+		NewGrpcCommand(),
 		NewJs(),
 		NewMongoCommand(),
 		NewOrmCommand(),
@@ -49,6 +51,13 @@ func NewDevCommand() *DevCommand {
 		providers.AfterProvider(_DevCommandSingle, "")
 	}
 	return _DevCommandSingle
+}
+func NewGrpcCommand() *GrpcCommand {
+	if _GrpcCommandSingle == nil {
+		_GrpcCommandSingle = &GrpcCommand{}
+		providers.AfterProvider(_GrpcCommandSingle, "")
+	}
+	return _GrpcCommandSingle
 }
 func NewJs() *Js {
 	if _JsSingle == nil {
