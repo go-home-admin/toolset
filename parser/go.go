@@ -444,7 +444,16 @@ func handleFunds(l []*word, offset int) (GoFunc, int) {
 	return GoFunc{Name: name}, offset + 1
 }
 func handleCosts(l []*word, offset int) (map[string]string, int) {
-	return handleVars(l, offset)
+	ft, _ := GetFistStr(l[offset+1:])
+	if ft != "(" {
+		return handleVars(l, offset)
+	} else {
+		var i int
+		offset = offset + i
+		_, et := GetBrackets(l[offset:], "(", ")")
+		offset = offset + et
+	}
+	return nil, offset
 }
 
 func handleVars(l []*word, offset int) (map[string]string, int) {
