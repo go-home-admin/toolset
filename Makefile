@@ -10,3 +10,4 @@ build:
 build-win:
 	go build -ldflags="-w -s" -o  $(GOBIN)/toolset.exe ./
 
+# toolset make:protoc -go_out=plugins=grpc:@root/generate/proto -debug=true
