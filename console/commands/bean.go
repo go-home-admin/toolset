@@ -253,20 +253,28 @@ func genInitializeNewStr(name string) string {
 func genImportAlias(m map[string]string) map[string]string {
 	aliasMapImport := make(map[string]string)
 	importMapAlias := make(map[string]string)
-	for _, imp := range m {
-		temp := strings.Split(imp, "/")
-		key := temp[len(temp)-1]
+	for iname, imp := range m {
+		if iname != imp {
+			if aliasMapImport[iname] != "" && aliasMapImport[iname] != imp {
+				aliasMapImport[iname+"_2"] = imp
+			} else {
+				aliasMapImport[iname] = imp
+			}
+		} else {
+			temp := strings.Split(imp, "/")
+			key := temp[len(temp)-1]
 
-		if _, ok := aliasMapImport[key]; ok {
-			for i := 1; i < 1000; i++ {
-				newKey := key + strconv.Itoa(i)
-				if _, ok2 := aliasMapImport[newKey]; !ok2 {
-					key = newKey
-					break
+			if _, ok := aliasMapImport[key]; ok {
+				for i := 1; i < 1000; i++ {
+					newKey := key + strconv.Itoa(i)
+					if _, ok2 := aliasMapImport[newKey]; !ok2 {
+						key = newKey
+						break
+					}
 				}
 			}
+			aliasMapImport[key] = imp
 		}
-		aliasMapImport[key] = imp
 	}
 	for s, s2 := range aliasMapImport {
 		importMapAlias[s2] = s
