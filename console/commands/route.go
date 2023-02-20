@@ -421,7 +421,7 @@ func genRoute(g *ApiGroups, out string) {
 	for _, s2 := range context {
 		str = str + "\n" + s2
 	}
-	err := os.WriteFile(out+"/"+parser.StringToSnake(g.name)+"_gen.go", []byte(str), 0766)
+	err := os.WriteFile(out+"/"+parser.StringToSnake(g.name)+"_route.go", []byte(str), 0766)
 	if err != nil {
 		log.Fatal("无法写入目录文件", err)
 	}
