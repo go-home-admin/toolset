@@ -133,17 +133,25 @@ func (RouteCommand) Configure() command.Configure {
 	}
 }
 
-func (RouteCommand) Execute(input command.Input) {
+func repRootPath(input command.Input) command.Input {
 	root := getRootPath()
+
+	for str, li := range input.Option {
+		for i, s := range li {
+			li[i] = strings.Replace(s, "@root", root, 1)
+		}
+		input.Option[str] = li
+	}
+
+	return input
+}
+
+func (RouteCommand) Execute(input command.Input) {
+	input = repRootPath(input)
 	module := getModModule()
 	out := input.GetOption("out_route")
-	out = strings.Replace(out, "@root", root, 1)
-
 	outHttp := input.GetOption("out_actions")
-	outHttp = strings.Replace(outHttp, "@root", root, 1)
-
 	path := input.GetOption("path")
-	path = strings.Replace(path, "@root", root, 1)
 
 	agl := map[string]*ApiGroups{}
 
@@ -233,7 +241,7 @@ func genController(server parser.Service, out string, genGrpc bool) {
 	grpcOut := strings.ReplaceAll(out, "/app/http", "/app/grpc")
 	if genGrpc {
 		methodStr = goMethodStrForCallGrpc
-		imports["myGrpc"] = goMod + "/app/grpc/handles/" + parser.StringToSnake(server.Name)
+		imports["myGrpc"] = goMod + "/app/grpc/" + parser.StringToSnake(server.Protoc.PackageName) + "/" + parser.StringToSnake(server.Name)
 		imports["context"] = "context"
 		// 生成grpc handle
 		genGrpcHandle(grpcOut, server)
@@ -243,6 +251,9 @@ func genController(server parser.Service, out string, genGrpc bool) {
 			for _, option := range options {
 				if strings.Index(option.Key, "http.") == 0 {
 					actionName := parser.StringToHump(rName)
+					if parser.DirIsExist(out+"/"+parser.StringToSnake(actionName)+"_action.go") && genGrpc && parser.DirIsExist(grpcOut+"/"+parser.StringToSnake(actionName)+"_action.go") {
+						continue
+					}
 
 					serPage := goMod + "/generate/proto/" + server.Protoc.PackageName
 					imports[serPage] = serPage
