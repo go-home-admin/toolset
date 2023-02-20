@@ -20,7 +20,7 @@ func NewGoParserForDir(path string) map[string][]GoFileParser {
 	for _, dir := range GetChildrenDir(path) {
 		arr := make([]GoFileParser, 0)
 		for _, file := range dir.GetFiles(".go") {
-			if file.Name() == "z_inject_gen.go" {
+			if strings.Index(file.Name(), "_gen.go") != -1 {
 				continue
 			}
 			gof, _ := GetFileParser(file.Path)
