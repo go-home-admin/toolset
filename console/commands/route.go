@@ -443,9 +443,7 @@ func genRoutesFunc(g *ApiGroups, m map[string]string) string {
 			if s == "http.Resource" {
 				str += "\n\t\t" + homeApi + ".Get(\"" + v.Val + "\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
 				str += "\n\t\t" + homeApi + ".Post(\"" + v.Val + "\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
-				str += "\n\t\t" + homeApi + ".Get(\"" + v.Val + "/:action\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
-				str += "\n\t\t" + homeApi + ".Put(\"" + v.Val + "/:action\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
-				str += "\n\t\t" + homeApi + ".Delete(\"" + v.Val + "/:action\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
+				str += "\n\t\t" + homeApi + ".Any(\"" + v.Val + "/:action\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
 			}
 		}
 		for rName, rpc := range server.Rpc {
