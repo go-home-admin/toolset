@@ -157,7 +157,6 @@ export async function %v%v(%v) {
 			}
 		}
 	}
-	fmt.Println(out)
 	_ = os.WriteFile(out, []byte(str), 0766)
 }
 

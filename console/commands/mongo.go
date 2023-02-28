@@ -229,6 +229,7 @@ func genWhere(tableName string, columns []parser.Attr) string {
 		"int32":   1,
 		"uint32":  1,
 		"int64":   1,
+		"uint64":  1,
 		"float32": 1,
 		"float64": 1,
 		"string":  1,
