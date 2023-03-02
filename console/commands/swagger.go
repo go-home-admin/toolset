@@ -28,24 +28,14 @@ func (SwaggerCommand) Configure() command.Configure {
 					Default:     "@root/protobuf",
 				},
 				{
-					Name:        "out_route",
-					Description: "生成文件到指定目录",
+					Name:        "source",
+					Description: "基础文件, 在这个文件上补充信息",
 					Default:     "@root/web/swagger.json",
 				},
 				{
-					Name:        "title",
-					Description: "文档标题",
-					Default:     "go-home-admin",
-				},
-				{
-					Name:        "description",
-					Description: "文档描述",
-					Default:     "面向工程的框架",
-				},
-				{
-					Name:        "host",
-					Description: "文档生成的host",
-					Default:     "github.com/go-home-admin",
+					Name:        "out",
+					Description: "生成文件到指定目录",
+					Default:     "@root/web/swagger_gen.json",
 				},
 			},
 		},
@@ -53,23 +43,14 @@ func (SwaggerCommand) Configure() command.Configure {
 }
 
 func (SwaggerCommand) Execute(input command.Input) {
-	root := getRootPath()
-	out := input.GetOption("out_route")
-	out = strings.Replace(out, "@root", root, 1)
-
+	input = repRootPath(input)
+	source := input.GetOption("source")
+	out := input.GetOption("out")
 	path := input.GetOption("path")
-	path = strings.Replace(path, "@root", root, 1)
 
 	swagger := openapi.Spec{
-		Swagger: "2.0",
-		Info: openapi.Info{
-			Title:       input.GetOption("title"),
-			Description: input.GetOption("description"),
-			Version:     "1.0",
-		},
-		Host:     input.GetOption("host"),
+		Swagger:  "2.0",
 		Schemes:  []string{"http", "https"},
-		BasePath: "/",
 		Produces: []string{"application/json"},
 		Paths:    make(map[string]*openapi.Path),
 		Definitions: map[string]*openapi.Schema{
@@ -80,6 +61,10 @@ func (SwaggerCommand) Execute(input command.Input) {
 		Parameters:    nil,
 		Extensions:    nil,
 		GlobalOptions: nil,
+	}
+	if parser.DirIsExist(source) {
+		data, _ := os.ReadFile(source)
+		json.Unmarshal(data, &swagger)
 	}
 
 	allProtoc := parser.NewProtocParserForDir(path)
