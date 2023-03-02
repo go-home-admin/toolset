@@ -244,7 +244,7 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 		if *column.IS_NULLABLE == "YES" && column.COLUMN_NAME != "deleted_at" {
 			p = "*"
 		}
-		if column.COLUMN_NAME != "deleted_at" {
+		if column.COLUMN_NAME == "deleted_at" {
 			column.GoType = "gorm.DeletedAt"
 		}
 		hasField[column.COLUMN_NAME] = true
