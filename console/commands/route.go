@@ -251,7 +251,8 @@ func genController(server parser.Service, out string, genGrpc bool) {
 			for _, option := range options {
 				if strings.Index(option.Key, "http.") == 0 {
 					actionName := parser.StringToHump(rName)
-					if parser.DirIsExist(out+"/"+parser.StringToSnake(actionName)+"_action.go") && genGrpc && parser.DirIsExist(grpcOut+"/"+parser.StringToSnake(actionName)+"_action.go") {
+					if parser.DirIsExist(out+"/"+parser.StringToSnake(actionName)+"_action.go") &&
+						(parser.DirIsExist(grpcOut+"/"+parser.StringToSnake(actionName)+"_action.go") || !genGrpc) {
 						continue
 					}
 
