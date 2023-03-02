@@ -232,8 +232,11 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 	str := `type {TableName} struct {`
 	for _, column := range columns {
 		p := ""
-		if column.IsNullable {
+		if column.IsNullable && column.ColumnName != "deleted_at" {
 			p = "*"
+		}
+		if column.ColumnName == "deleted_at" {
+			column.GoType = "gorm.DeletedAt"
 		}
 		hasField[column.ColumnName] = true
 		fieldName := parser.StringToHump(column.ColumnName)
