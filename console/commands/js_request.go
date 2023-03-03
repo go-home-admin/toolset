@@ -89,8 +89,7 @@ func (j *Js) Execute(input command.Input) {
 	fixSwaggerType(&swagger)
 
 	tag := input.GetOption("tag")
-	str := `import http from "@/utils/request";
-import config from "@/config";
+	str := `import http from '@/utils/request'
 `
 	for _, url := range sortPathMap(swagger.Paths) {
 		paths := swagger.Paths[url]
@@ -141,7 +140,7 @@ import config from "@/config";
  * @callback
  */
 export async function %v%v(%v) {
-	return await http.%v(%v%v);
+  return await http.%v(%v%v)
 }
 `,
 					method.e.Description,
@@ -226,7 +225,7 @@ func canMakeJs(e *openapi.Endpoint, tag string) bool {
 func analysisUrl(url string) (newUrl string, funcName string, params []string) {
 	re, _ := regexp.Compile("/:([^/\\n\\r])+")
 	funcName = url
-	newUrl = fmt.Sprintf("`${config.API_URL}%v`", url)
+	newUrl = fmt.Sprintf("`%v`", url)
 	for _, s := range re.FindAllString(funcName, -1) {
 		p := strings.Replace(s, "/:", "", 1)
 		params = append(params, p)

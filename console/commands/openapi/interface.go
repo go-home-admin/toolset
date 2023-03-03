@@ -6,6 +6,7 @@ type Spec struct {
 	Host          string                `json:"host,omitempty"`
 	Schemes       []string              `json:"schemes,omitempty"`
 	BasePath      string                `json:"basePath,omitempty"`
+	Tags          []Tag                 `json:"tags,omitempty"`
 	Produces      []string              `json:"produces,omitempty"`
 	Paths         map[string]*Path      `json:"paths,omitempty"`
 	Definitions   map[string]*Schema    `json:"definitions,omitempty"`
@@ -17,6 +18,11 @@ type Info struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Version     string `json:"version"`
+}
+
+type Tag struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 type Extension struct {

@@ -13,11 +13,12 @@ import (
 // RouteCommand @Bean
 type RouteCommand struct{}
 
+// 简单gin处理模版
 var goMethodStr = `package {package}
 
 import ({import})
 
-// {action}  {doc}
+// {action}{doc}
 func (receiver *Controller) {action}(req *{paramAlias}.{param}, ctx http.Context) (*{returnAlias}.{return}, error) {
 	// TODO 这里写业务
 	return &{returnAlias}.{return}{}, nil
@@ -44,10 +45,60 @@ func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
 }
 `
 
+// http同时调用到grpc入口
+var goMethodStrForCallGrpc = `package {package}
+
+import ({import})
+
+// {action}  {doc}
+func (receiver *Controller) {action}(req *{paramAlias}.{param}, ctx http.Context) (*{returnAlias}.{return}, error) {
+	return myGrpc.NewHandle().{action}(context.Background(), req)
+}
+
+// GinHandle{action} gin原始路由处理
+// http.{method}({url})
+func (receiver *Controller) GinHandle{action}(ctx *gin.Context) {
+	req := &{paramAlias}.{param}{}
+	err := ctx.ShouldBind(req)
+	context := http.NewContext(ctx)
+	if err != nil {
+		context.Fail(err)
+		return
+	}
+	
+	resp, err := receiver.{action}(req, context)
+	if err != nil {
+		context.Fail(err)
+		return
+	}
+
+	context.Success(resp)
+}
+`
+
+// grpc入口
+var goGrpcFunc = `package {package}
+
+import ({import})
+
+// {action}{doc}
+// http.{method}({url})
+func (h Handle) {action}(ctx context.Context, req *{paramAlias}.{param}) (*{returnAlias}.{return}, error) {
+	// TODO 这里写业务
+	return &{returnAlias}.{return}{}, nil
+}
+`
+
 var goConStr = `package {package}
 
 // Controller @Bean
 type Controller struct {
+}`
+
+var goGrpcStr = `package {package}
+
+// Handle @Bean
+type Handle struct {
 }`
 
 func (RouteCommand) Configure() command.Configure {
@@ -72,21 +123,35 @@ func (RouteCommand) Configure() command.Configure {
 					Default:     "@root/app/http",
 				},
 			},
+			Has: []command.ArgParam{
+				{
+					Name:        "--grpc",
+					Description: "生成grpc文件处理模版",
+				},
+			},
 		},
 	}
 }
 
-func (RouteCommand) Execute(input command.Input) {
+func repRootPath(input command.Input) command.Input {
 	root := getRootPath()
+
+	for str, li := range input.Option {
+		for i, s := range li {
+			li[i] = strings.Replace(s, "@root", root, 1)
+		}
+		input.Option[str] = li
+	}
+
+	return input
+}
+
+func (RouteCommand) Execute(input command.Input) {
+	input = repRootPath(input)
 	module := getModModule()
 	out := input.GetOption("out_route")
-	out = strings.Replace(out, "@root", root, 1)
-
 	outHttp := input.GetOption("out_actions")
-	outHttp = strings.Replace(outHttp, "@root", root, 1)
-
 	path := input.GetOption("path")
-	path = strings.Replace(path, "@root", root, 1)
 
 	agl := map[string]*ApiGroups{}
 
@@ -109,7 +174,7 @@ func (RouteCommand) Execute(input command.Input) {
 								servers:     make([]parser.Service, 0),
 							}
 						}
-						genController(service, outHttp)
+						genController(service, outHttp, input.GetHas("--grpc"))
 						break
 					}
 				}
@@ -144,12 +209,18 @@ func (RouteCommand) Execute(input command.Input) {
 	_ = cmd.Run()
 }
 
-func genController(server parser.Service, out string) {
+func genController(server parser.Service, out string, genGrpc bool) {
 	page := server.Protoc.PackageName
 	out += "/" + page + "/" + parser.StringToSnake(server.Name)
 
 	if !parser.DirIsExist(out) {
 		_ = os.MkdirAll(out, 0760)
+	}
+
+	for s, _ := range server.Opt {
+		if s == "http.Resource" {
+			genResourceController(server, out)
+		}
 	}
 
 	if !parser.DirIsExist(out + "/controller.go") {
@@ -161,25 +232,27 @@ func genController(server parser.Service, out string) {
 		}
 	}
 
-	for s, _ := range server.Opt {
-		if s == "http.Resource" {
-			genResourceController(server, out)
-		}
-	}
-
-	methodStr := goMethodStr
 	gin := "github.com/gin-gonic/gin"
 	http := "github.com/go-home-admin/home/app/http"
 	imports := map[string]string{gin: gin, http: http}
 	goMod := getModModule()
+	methodStr := goMethodStr
 
+	grpcOut := strings.ReplaceAll(out, "/app/http", "/app/grpc")
+	if genGrpc {
+		methodStr = goMethodStrForCallGrpc
+		imports["myGrpc"] = goMod + "/app/grpc/" + parser.StringToSnake(server.Protoc.PackageName) + "/" + parser.StringToSnake(server.Name)
+		imports["context"] = "context"
+		// 生成grpc handle
+		genGrpcHandle(grpcOut, server)
+	}
 	for rName, rpc := range server.Rpc {
 		for _, options := range rpc.Opt {
 			for _, option := range options {
 				if strings.Index(option.Key, "http.") == 0 {
 					actionName := parser.StringToHump(rName)
-					actionFile := out + "/" + parser.StringToSnake(actionName) + "_action.go"
-					if parser.DirIsExist(actionFile) {
+					if parser.DirIsExist(out+"/"+parser.StringToSnake(actionName)+"_action.go") &&
+						(parser.DirIsExist(grpcOut+"/"+parser.StringToSnake(actionName)+"_action.go") || !genGrpc) {
 						continue
 					}
 
@@ -218,7 +291,7 @@ func genController(server parser.Service, out string) {
 					method := option.Key[i+1:]
 					url := option.Val
 
-					for s, O := range map[string]string{
+					reps := map[string]string{
 						"{package}":         parser.StringToSnake(server.Name),
 						"{import}":          importsStr + "\n",
 						"{doc}":             rpc.Doc,
@@ -230,13 +303,31 @@ func genController(server parser.Service, out string) {
 						"{param}":           params,
 						"{returnAlias}":     returnAlias,
 						"{return}":          ret,
-					} {
-						str = strings.ReplaceAll(str, s, O)
 					}
 
-					err := os.WriteFile(out+"/"+parser.StringToSnake(actionName)+"_action.go", []byte(str), 0766)
-					if err != nil {
-						log.Fatal(err)
+					// 生成http
+					if !parser.DirIsExist(out + "/" + parser.StringToSnake(actionName) + "_action.go") {
+						for s, O := range reps {
+							str = strings.ReplaceAll(str, s, O)
+						}
+						err := os.WriteFile(out+"/"+parser.StringToSnake(actionName)+"_action.go", []byte(str), 0766)
+						if err != nil {
+							log.Fatal(err)
+						}
+					}
+
+					// 生成grpc
+					if genGrpc && !parser.DirIsExist(grpcOut+"/"+parser.StringToSnake(actionName)+"_action.go") {
+						reps["{import}"] = "\n\t\"context\"\n\t\"" + serPage + "\"\n"
+
+						goGrpcFunc2 := goGrpcFunc
+						for s, O := range reps {
+							goGrpcFunc2 = strings.ReplaceAll(goGrpcFunc2, s, O)
+						}
+						err := os.WriteFile(grpcOut+"/"+parser.StringToSnake(actionName)+"_action.go", []byte(goGrpcFunc2), 0766)
+						if err != nil {
+							log.Fatal(err)
+						}
 					}
 				}
 			}
@@ -244,9 +335,23 @@ func genController(server parser.Service, out string) {
 	}
 }
 
+func genGrpcHandle(out string, server parser.Service) {
+	if !parser.DirIsExist(out) {
+		_ = os.MkdirAll(out, 0760)
+	}
+
+	if !parser.DirIsExist(out + "/handle.go") {
+		conStr := strings.ReplaceAll(goGrpcStr, "{package}", parser.StringToSnake(server.Name))
+		err := os.WriteFile(out+"/handle.go", []byte(conStr), 0760)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
 // 生成资源控制器
 func genResourceController(server parser.Service, out string) {
-	actionFile := out + "/resource.go"
+	actionFile := out + "/crud.go"
 	if parser.DirIsExist(actionFile) {
 		return
 	}
@@ -255,54 +360,40 @@ func genResourceController(server parser.Service, out string) {
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/go-home-admin/go-admin/app/servers/gui"
-	"github.com/go-home-admin/go-admin/app/servers/gui/form"
-	"github.com/go-home-admin/go-admin/app/servers/gui/table"
+	"github.com/go-home-admin/amis"
 )
 
-// GinHandleResource gin原始路由处理
-func (receiver *Controller) GinHandleResource(ctx *gin.Context) {
-	NewGuiContext(ctx).ActionHandle()
+func (c *CrudContext) Common() {
+	// c.SetDb(admin.NewOrmAdminMenu())
 }
 
-type GuiContext struct {
-	*gui.GinHandle
-	*table.View
+func (c *CrudContext) Table(curd *amis.Crud) {
+	curd.Column("自增", "id")
+	curd.Column("文本", "text")
+	curd.Column("图片", "image").Image()
+	curd.Column("日期", "date").Date()
+	curd.Column("进度", "progress").Progress()
+	curd.Column("状态", "status").Status()
+	curd.Column("开关", "switch").Switch()
+	curd.Column("映射", "mapping").Mapping(map[string]string{})
+	curd.Column("List", "list").List()
 }
 
-func NewGuiContext(ctx *gin.Context) *GuiContext {
-	guid := &GuiContext{GinHandle: gui.NewGui(ctx)}
-	guid.View = table.NewTable(guid)
-	guid.SetController(guid)
-	// 你要编辑的默认sql条件
-	// guid.SetDb(mysql.NewOrmUser())
-	return guid
+func (c *CrudContext) Form(form *amis.Form) {
+	form.Input("text", "文本")
+	form.Input("image", "图片")
+
 }
 
-func (g *GuiContext) Grid(view *table.View) {
-	view.Column("头像", "icon").Avatar()
-	view.Column("姓名", "nickname").Width("150")
-	view.Column("性别", "sex").Width("150").Filters([]gui.Filter{{Text: "男", Value: "1"}, {Text: "女", Value: "0"}})
-	view.Column("邮箱", "email").Width("150")
-	view.Column("注册时间", "created_at").Width("250").Sortable(true)
-
-	action := view.NewAction()
-	action.AddButton("删除").Delete().Options("type", "danger")
-	action.AddButton("编辑").Edit().Options("type", "primary")
-
-	// 设置搜索栏
-	filter := view.NewSearch()
-	filter.Input("name", "名称").Span("12")
-	filter.Input("nick", "昵称").Span("12")
-	filter.Input("sex", "性别").Span("24")
-
-	header := view.NewHeader()
-	header.Create()
+func (c *Controller) GinHandleCurd(ctx *gin.Context) {
+	var crud = &CrudContext{}
+	crud.CurdController.Context = ctx
+	crud.CurdController.Crud = crud
+	amis.GinHandleCurd(ctx, crud)
 }
 
-func (g *GuiContext) Form(f *form.DialogForm) {
-	f.Input("nickname", "名称")
-	f.Input("created_at", "注册时间")
+type CrudContext struct {
+	amis.CurdController
 }
 
 `
@@ -331,7 +422,7 @@ func genRoute(g *ApiGroups, out string) {
 	for _, s2 := range context {
 		str = str + "\n" + s2
 	}
-	err := os.WriteFile(out+"/"+parser.StringToSnake(g.name)+"_gen.go", []byte(str), 0766)
+	err := os.WriteFile(out+"/"+parser.StringToSnake(g.name)+"_route.go", []byte(str), 0766)
 	if err != nil {
 		log.Fatal("无法写入目录文件", err)
 	}
@@ -351,8 +442,9 @@ func genRoutesFunc(g *ApiGroups, m map[string]string) string {
 	for _, server := range g.servers {
 		for s, v := range server.Opt {
 			if s == "http.Resource" {
-				str += "\n\t\t" + homeApi + ".Get(\"" + v.Val + "\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleResource,"
-				str += "\n\t\t" + homeApi + ".Any(\"" + v.Val + "/:action\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleResource,"
+				str += "\n\t\t" + homeApi + ".Get(\"" + v.Val + "\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
+				str += "\n\t\t" + homeApi + ".Post(\"" + v.Val + "\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
+				str += "\n\t\t" + homeApi + ".Any(\"" + v.Val + "/:action\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
 			}
 		}
 		for rName, rpc := range server.Rpc {

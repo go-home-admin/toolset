@@ -39,6 +39,10 @@ func (ProtocCommand) Configure() command.Configure {
 					Description: "生成文件到指定目录",
 					Default:     "@root/generate/proto",
 				},
+				{
+					Name:        "out",
+					Description: "其他扩展输出配置, 直接拼接值",
+				},
 			},
 		},
 	}
@@ -49,11 +53,23 @@ var show = false
 func (ProtocCommand) Execute(input command.Input) {
 	show = input.GetOption("debug") == "true"
 	root := getRootPath()
+
+	var outTemp, outPath string
 	out := input.GetOption("go_out")
 	out = strings.Replace(out, "@root", root, 1)
-	outTemp, _ := filepath.Abs(out + "/../temp")
-	_ = os.RemoveAll(outTemp)
-	_ = os.MkdirAll(outTemp, 0766)
+	if outIndex := strings.Index(out, ":"); outIndex != -1 {
+		outPath = out[outIndex+1:]
+		outPath, _ = filepath.Abs(outPath + "/../temp")
+		_ = os.RemoveAll(outPath)
+		_ = os.MkdirAll(outPath, 0766)
+		outTemp = out[:outIndex+1] + outPath
+		out = out[outIndex+1:]
+	} else {
+		outTemp, _ = filepath.Abs(out + "/../temp")
+		_ = os.RemoveAll(outTemp)
+		_ = os.MkdirAll(outTemp, 0766)
+		outPath = outTemp
+	}
 
 	path := input.GetOption("proto")
 	path = strings.Replace(path, "@root", root, 1)
@@ -84,8 +100,8 @@ func (ProtocCommand) Execute(input command.Input) {
 	rootAlias := strings.Replace(out, root+"/", "", 1)
 	module := getModModule()
 
-	for _, dir := range parser.GetChildrenDir(outTemp) {
-		dir2 := strings.Replace(dir.Path, outTemp+"/", "", 1)
+	for _, dir := range parser.GetChildrenDir(outPath) {
+		dir2 := strings.Replace(dir.Path, outPath+"/", "", 1)
 		dir3 := strings.Replace(dir2, module+"/", "", 1)
 		if dir2 == dir3 {
 			continue
@@ -93,7 +109,7 @@ func (ProtocCommand) Execute(input command.Input) {
 
 		if dir3 == rootAlias {
 			_ = os.Rename(dir.Path, out)
-			_ = os.RemoveAll(outTemp)
+			_ = os.RemoveAll(outPath)
 			break
 		}
 	}

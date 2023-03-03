@@ -25,6 +25,10 @@ func (orm *OrmMysqlTableName) GetDB() *gorm.DB {
 	return orm.db
 }
 
+func (orm *OrmMysqlTableName) GetTableInfo() interface{} {
+	return &MysqlTableName{}
+}
+
 // Create insert the value into database
 func (orm *OrmMysqlTableName) Create(value interface{}) *gorm.DB {
 	return orm.db.Create(value)

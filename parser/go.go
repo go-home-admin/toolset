@@ -20,7 +20,7 @@ func NewGoParserForDir(path string) map[string][]GoFileParser {
 	for _, dir := range GetChildrenDir(path) {
 		arr := make([]GoFileParser, 0)
 		for _, file := range dir.GetFiles(".go") {
-			if file.Name() == "z_inject_gen.go" {
+			if strings.Index(file.Name(), "_gen.go") != -1 {
 				continue
 			}
 			gof, _ := GetFileParser(file.Path)
@@ -444,7 +444,16 @@ func handleFunds(l []*word, offset int) (GoFunc, int) {
 	return GoFunc{Name: name}, offset + 1
 }
 func handleCosts(l []*word, offset int) (map[string]string, int) {
-	return handleVars(l, offset)
+	ft, _ := GetFistStr(l[offset+1:])
+	if ft != "(" {
+		return handleVars(l, offset)
+	} else {
+		var i int
+		offset = offset + i
+		_, et := GetBrackets(l[offset:], "(", ")")
+		offset = offset + et
+	}
+	return nil, offset
 }
 
 func handleVars(l []*word, offset int) (map[string]string, int) {
