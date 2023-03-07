@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/ctfang/command"
 	"github.com/go-home-admin/toolset/parser"
 	"log"
@@ -122,6 +123,11 @@ func (RouteCommand) Configure() command.Configure {
 					Description: "生成文件到指定目录",
 					Default:     "@root/app/http",
 				},
+				{
+					Name:        "skip",
+					Description: "跳过某个目录, 不生成api信息",
+					Default:     "", // @root/protobuf/http
+				},
 			},
 			Has: []command.ArgParam{
 				{
@@ -152,10 +158,17 @@ func (RouteCommand) Execute(input command.Input) {
 	out := input.GetOption("out_route")
 	outHttp := input.GetOption("out_actions")
 	path := input.GetOption("path")
+	skips := input.GetOptions("skip")
 
 	agl := map[string]*ApiGroups{}
 
-	for _, parsers := range parser.NewProtocParserForDir(path) {
+	for dir, parsers := range parser.NewProtocParserForDir(path) {
+		for _, skip := range skips {
+			if strings.Index(dir, skip) != -1 {
+				fmt.Println("skip dir = " + dir)
+				continue
+			}
+		}
 		for _, fileParser := range parsers {
 			for _, service := range fileParser.Services {
 				group := ""
