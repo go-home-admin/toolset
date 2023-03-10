@@ -79,3 +79,8 @@ Has:
 Description:
    生成依赖注入的声明源代码文件, 使用@Bean注解, 和inject引入
 ````
+
+
+# 数据库注释使用 
+1. 使用注释@type(int), 强制设置生成的go struct 属性 类型
+2. 使用注释@index, 强制生成索引赋值函数

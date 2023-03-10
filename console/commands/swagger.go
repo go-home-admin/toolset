@@ -163,7 +163,7 @@ func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, now
 			endpoint.Description = service.Doc + option.Doc
 			endpoint.Summary = service.Doc + option.Doc
 			endpoint.Tags = strings.Split(pge, ".")
-			endpoint.Parameters = messageToParameters(service.Param, nowDirProtoc, allProtoc)
+			endpoint.Parameters = messageToParameters(option.Key, service.Param, nowDirProtoc, allProtoc)
 			endpoint.Responses = map[string]*openapi.Response{
 				"200": messageToResponse(service.Return, nowDirProtoc, allProtoc),
 			}
@@ -204,12 +204,19 @@ func messageToResponse(message string, nowDirProtoc []parser.ProtocFileParser, a
 	return got
 }
 
-func messageToParameters(message string, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser) openapi.Parameters {
+func messageToParameters(method string, message string, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser) openapi.Parameters {
 	protocMessage, pge := findMessage(message, nowDirProtoc, allProtoc)
 	got := openapi.Parameters{}
 	if protocMessage == nil {
 		return got
 	}
+	in := "query"
+	switch method {
+	case "http.Get":
+	default:
+		in = "formData"
+	}
+
 	for _, option := range protocMessage.Attr {
 		doc, isRequired := filterRequired(option.Doc)
 		doc = getTitle(doc)
@@ -221,7 +228,7 @@ func messageToParameters(message string, nowDirProtoc []parser.ProtocFileParser,
 					Description: doc,
 					Enum:        nil,
 					Format:      option.Ty,
-					In:          "query",
+					In:          in,
 					Required:    isRequired,
 					Items: &openapi.Schema{
 						Description: doc,
@@ -237,7 +244,7 @@ func messageToParameters(message string, nowDirProtoc []parser.ProtocFileParser,
 					Name:        option.Name,
 					Description: doc,
 					Type:        "array",
-					In:          "query",
+					In:          in,
 					Required:    isRequired,
 					Items: &openapi.Schema{
 						Ref:         getRef(pge, option.Ty),
@@ -251,7 +258,7 @@ func messageToParameters(message string, nowDirProtoc []parser.ProtocFileParser,
 		} else if isProtoBaseType(option.Ty) {
 			attr := &openapi.Parameter{
 				Name:        option.Name,
-				In:          "query",
+				In:          in,
 				Description: doc,
 				Type:        getProtoToSwagger(option.Ty),
 				Format:      option.Ty,
@@ -265,7 +272,7 @@ func messageToParameters(message string, nowDirProtoc []parser.ProtocFileParser,
 				Description: doc,
 				Type:        getProtoToSwagger(option.Ty),
 				Format:      option.Ty,
-				In:          "query",
+				In:          in,
 				Required:    isRequired,
 				Schema: &openapi.Schema{
 					Type:        "object",

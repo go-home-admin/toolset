@@ -247,6 +247,14 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 		if column.COLUMN_NAME == "deleted_at" {
 			column.GoType = "gorm.DeletedAt"
 		}
+
+		// 使用注释@Type(int), 强制设置生成的go struct 属性 类型
+		if i := strings.Index(column.COLUMN_COMMENT, "@type("); i != -1 {
+			s := column.COLUMN_COMMENT[i+6:]
+			e := strings.Index(s, ")")
+			column.GoType = s[:e]
+		}
+
 		hasField[column.COLUMN_NAME] = true
 		fieldName := parser.StringToHump(column.COLUMN_NAME)
 		str += fmt.Sprintf("\n\t%v %v%v`%v json:\"%v\"` // %v", fieldName, p, column.GoType, genGormTag(column), column.COLUMN_NAME, strings.ReplaceAll(column.COLUMN_COMMENT, "\n", " "))
