@@ -108,7 +108,7 @@ func (orm *OrmMysqlTableName) Exists() (bool, error) {
 	return dest.H == 1, db.Error
 }
 
-func (orm *OrmOrder) Unscoped() *OrmOrder {
+func (orm *OrmMysqlTableName) Unscoped() *OrmMysqlTableName {
 	orm.db.Unscoped()
 	return orm
 }
