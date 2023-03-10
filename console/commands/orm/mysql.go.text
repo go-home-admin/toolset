@@ -108,6 +108,10 @@ func (orm *OrmMysqlTableName) Exists() (bool, error) {
 	return dest.H == 1, db.Error
 }
 
+func (orm *OrmOrder) Unscoped() *OrmOrder {
+	orm.db.Unscoped()
+	return orm
+}
 // ------------ 以下是单表独有的函数, 便捷字段条件, Laravel风格操作 ---------
 
 func (orm *OrmMysqlTableName) Insert(row *MysqlTableName) error {
