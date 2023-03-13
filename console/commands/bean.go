@@ -60,7 +60,15 @@ func (BeanCommand) Execute(input command.Input) {
 		skip[s] = true
 	}
 
-	for dir, fileParsers := range parser.NewGoParserForDir(scan) {
+	fileList := parser.NewGoParserForDir(scan)
+	var keys []string
+	for s, _ := range fileList {
+		keys = append(keys, s)
+	}
+	sort.Strings(keys)
+
+	for _, dir := range keys {
+		fileParsers := fileList[dir]
 		isSkip := false
 		for s := range skip {
 			if strings.Index(dir, s) != -1 {
