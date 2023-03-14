@@ -223,13 +223,20 @@ func protoService(l []*word, offset int) (Service, int) {
 		Rpc:  make(map[string]ServiceRpc, 0),
 	}
 	doc := ""
+	countDoc := 0 // 超过两次回车复原0
 	for offset := 0; offset < len(nl); offset++ {
 		work := nl[offset]
 		switch work.Ty {
 		case wordT_line:
+			countDoc = countDoc + 1
+			if countDoc == 2 {
+				countDoc = 0
+				doc = ""
+			}
 		case wordT_division:
 		case wordT_doc:
 			doc += work.Str
+			countDoc = 0
 		case wordT_word:
 			switch work.Str {
 			case "option":
