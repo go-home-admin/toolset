@@ -41,7 +41,8 @@ func GenMysql(name string, conf Conf, out string) {
 	}
 
 	db := NewDb(conf)
-	tableColumns := db.tableColumns()
+	tableInfos := db.tableColumns()
+	tableColumns := tableInfos.Columns
 
 	root, _ := os.Getwd()
 	file, err := os.ReadFile(root + "/config/database/" + name + ".json")
@@ -54,8 +55,9 @@ func GenMysql(name string, conf Conf, out string) {
 	}
 
 	// 计算import
-	imports := getImports(tableColumns)
+	imports := getImports(tableInfos.Infos, tableColumns)
 	for table, columns := range tableColumns {
+		tableConfig := tableInfos.Infos[table]
 		mysqlTableName := parser.StringToSnake(table)
 		file := out + "/" + mysqlTableName
 
@@ -63,7 +65,12 @@ func GenMysql(name string, conf Conf, out string) {
 		str += "\nimport (" + imports[table] + "\n)"
 		str += "\n" + genOrmStruct(table, columns, conf, relationship[table])
 
-		baseFunStr := baseMysqlFuncStr
+		var baseFunStr string
+		if tableConfig.IsSub() {
+			baseFunStr = baseMysqlSubinfoStr
+		} else {
+			baseFunStr = baseMysqlFuncStr
+		}
 		for old, newStr := range map[string]string{
 			"MysqlTableName": parser.StringToHump(table),
 			"{table_name}":   table,
@@ -200,6 +207,9 @@ func strInStr(s string, in []string) bool {
 	return false
 }
 
+//go:embed mysql.go.subtext
+var baseMysqlSubinfoStr string
+
 //go:embed mysql.go.text
 var baseMysqlFuncStr string
 
@@ -209,7 +219,7 @@ var alias = map[string]string{
 }
 
 // 获得 table => map{alias => github.com/*}
-func getImports(tableColumns map[string][]tableColumn) map[string]string {
+func getImports(infos map[string]TableInfos, tableColumns map[string][]tableColumn) map[string]string {
 	got := make(map[string]string)
 	for table, columns := range tableColumns {
 		// 初始引入
@@ -221,6 +231,10 @@ func getImports(tableColumns map[string][]tableColumn) map[string]string {
 			"database/sql":                                      "sql",
 			"github.com/go-home-admin/home/app":                 "home",
 		}
+		if infos[table].IsSub() {
+			delete(tm, "github.com/go-home-admin/home/bootstrap/providers")
+		}
+
 		for _, column := range columns {
 			index := strings.Index(column.GoType, ".")
 			if index != -1 {
@@ -364,7 +378,7 @@ func (d *DB) GetDB() *sql.DB {
 
 // 获取所有表信息
 // 过滤分表信息, table_{1-9} 只返回table
-func (d *DB) tableColumns() map[string][]tableColumn {
+func (d *DB) tableColumns() TableInfo {
 	var sqlStr = `SELECT
 	TABLE_CATALOG,
 	TABLE_SCHEMA,
@@ -398,7 +412,7 @@ ORDER BY
 	rows, err := d.db.Query(sqlStr)
 	if err != nil {
 		log.Println("Error reading table information: ", err.Error())
-		return nil
+		return TableInfo{}
 	}
 
 	defer rows.Close()
@@ -431,7 +445,7 @@ ORDER BY
 		)
 		if err != nil {
 			log.Println(err.Error())
-			return nil
+			return TableInfo{}
 		}
 
 		col.ColumnName = parser.StringToHump(col.COLUMN_NAME)
@@ -454,8 +468,12 @@ ORDER BY
 
 // Filter 过滤分表格式
 // table_{0-9} 只返回table
-func Filter(tableColumns map[string][]tableColumn) map[string][]tableColumn {
-	got := make(map[string][]tableColumn)
+func Filter(tableColumns map[string][]tableColumn) TableInfo {
+	info := TableInfo{
+		Columns: make(map[string][]tableColumn),
+		Infos:   make(map[string]TableInfos),
+	}
+
 	for tableName, columns := range tableColumns {
 		arr := strings.Split(tableName, "_")
 		arrLen := len(arr)
@@ -464,12 +482,15 @@ func Filter(tableColumns map[string][]tableColumn) map[string][]tableColumn {
 			_, err := strconv.Atoi(str)
 			if err == nil {
 				tableName = strings.ReplaceAll(tableName, "_"+str, "")
+				info.Infos[tableName] = TableInfos{
+					"sub": "true", // 分表
+				}
 			}
 		}
 
-		got[tableName] = columns
+		info.Columns[tableName] = columns
 	}
-	return got
+	return info
 }
 
 func (d *DB) tableIndex() map[string]map[string][]tableColumnIndex {
@@ -517,6 +538,20 @@ func (d *DB) tableIndex() map[string]map[string][]tableColumnIndex {
 		got[data["TABLE_NAME"]] = tableIndex
 	}
 	return got
+}
+
+type TableInfos map[string]interface{}
+
+func (t TableInfos) IsSub() bool {
+	if _, ok := t["sub"]; ok {
+		return true
+	}
+	return false
+}
+
+type TableInfo struct {
+	Columns map[string][]tableColumn
+	Infos   map[string]TableInfos
 }
 
 type tableColumn struct {
