@@ -23,6 +23,7 @@ type Option struct {
 	Doc   string
 	Key   string
 	Val   string
+	Map   map[string]string
 	wl    []*word
 	alias string
 }
@@ -193,7 +194,6 @@ func serverOption(l []*word, offset int) (Option, int) {
 	st, et := GetBrackets(l[offset:], "(", ")")
 	wl := l[offset+st : offset+et+1]
 	offset = offset + et + 1
-	val, i := GetFistWord(l[offset:])
 	var key string
 	var alias string
 	if len(wl) >= 5 {
@@ -202,13 +202,39 @@ func serverOption(l []*word, offset int) (Option, int) {
 	for _, w := range wl {
 		key = key + w.Str
 	}
+	val, i := GetFistWord(l[offset:])
+	var opVal string
+	opMap := make(map[string]string)
+	if HasPrefix(l[offset+i].Str, "\"") {
+		opVal = val[1 : len(val)-1]
+		offset = offset + i
+	} else {
+		// option 值是对象
+		st, et := GetBrackets(l[offset+i-1:], "{", "}")
+		nl := l[offset+i-1+st : offset+i-1+et]
+		// 只支持键值对
+		mKey := ""
+		for _, w := range nl {
+			switch w.Ty {
+			case wordT_word:
+				if mKey == "" {
+					mKey = w.Str
+				} else {
+					opMap[mKey] = strings.Trim(w.Str, "\"")
+					mKey = ""
+				}
+			}
+		}
+		offset = offset + i + et
+	}
 
 	return Option{
 		Key:   key[1 : len(key)-1],
-		Val:   val[1 : len(val)-1],
+		Val:   opVal,
+		Map:   opMap,
 		wl:    wl,
 		alias: alias,
-	}, offset + i
+	}, offset
 }
 func protoService(l []*word, offset int) (Service, int) {
 	name, i := GetFistWordBehindStr(l[offset:], "service")

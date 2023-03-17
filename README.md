@@ -84,3 +84,22 @@ Description:
 # 数据库注释使用 
 1. 使用注释@type(int), 强制设置生成的go struct 属性 类型
 2. 使用注释@index, 强制生成索引赋值函数
+
+
+# 生成文档
+定义方式
+````protobuf
+service Controller {
+    // 发送通知文档, 不用请求
+    rpc Api(ApiRequest)returns(ApiResponse){
+        option (http.Post) = "/test";
+        // 没有权限
+        option (http.Status) = {Code: 401,Response: "TResponse"};
+        // test
+        option (http.Status) = {Code: 402,Response: "TTResponse"};
+        // test
+        option (http.Status) = {Code: 403,Response: "TTTResponse"};
+    }
+}
+message TResponse {}
+````

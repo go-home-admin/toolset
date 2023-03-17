@@ -147,10 +147,26 @@ func defName(name string) string {
 	return name
 }
 
+func getUrl(opts map[string][]parser.Option) string {
+	urlPath := ""
+	for _, options := range opts {
+		for _, option := range options {
+			switch option.Key {
+			case "http.Get", "http.Put", "http.Post", "http.Patch", "http.Delete":
+				urlPath = option.Val
+			}
+		}
+	}
+	return urlPath
+}
+
 func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser, serviceOpt map[string]parser.Option) {
 	for _, options := range service.Opt {
 		for _, option := range options {
 			urlPath := option.Val
+			if urlPath == "" {
+				urlPath = getUrl(service.Opt)
+			}
 			if routeGroup, ok := serviceOpt["http.RouteGroup"]; ok {
 				urlPath = "$[" + routeGroup.Val + "]" + urlPath
 			}
@@ -158,14 +174,38 @@ func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, now
 			if o, ok := swagger.Paths[urlPath]; ok {
 				path = o
 			}
-
 			endpoint := &openapi.Endpoint{}
-			endpoint.Description = service.Doc + option.Doc
-			endpoint.Summary = service.Doc + option.Doc
-			endpoint.Tags = strings.Split(pge, ".")
-			endpoint.Parameters = messageToParameters(option.Key, service.Param, nowDirProtoc, allProtoc)
-			endpoint.Responses = map[string]*openapi.Response{
-				"200": messageToResponse(service.Return, nowDirProtoc, allProtoc),
+			switch option.Key {
+			case "http.Get", "http.Put", "http.Post", "http.Patch", "http.Delete":
+				endpoint.Description = service.Doc + option.Doc
+				endpoint.Summary = service.Doc + option.Doc
+				endpoint.Tags = strings.Split(pge, ".")
+				endpoint.Parameters = messageToParameters(option.Key, service.Param, nowDirProtoc, allProtoc)
+				endpoint.Responses = map[string]*openapi.Response{
+					"200": messageToResponse(service.Return, nowDirProtoc, allProtoc),
+				}
+			case "http.Status":
+				// 其他状态码的返回结构
+				for _, endpoint := range []*openapi.Endpoint{
+					path.Get,
+					path.Post,
+					path.Put,
+					path.Patch,
+					path.Delete,
+				} {
+					if endpoint != nil {
+						code := option.Map["Code"]
+						resp := option.Map["Response"]
+						endpoint.Responses[code] = &openapi.Response{
+							Description: option.Doc,
+							Schema: &openapi.Schema{
+								Ref: "#/definitions/" + resp,
+							},
+						}
+					}
+				}
+			default:
+				continue
 			}
 
 			switch option.Key {
