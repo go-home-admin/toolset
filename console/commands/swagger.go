@@ -80,6 +80,12 @@ func (SwaggerCommand) Execute(input command.Input) {
 				swagger.Definitions[defName(name)] = parameter
 			}
 
+		}
+	}
+	// 全局定义后在生成url
+	for s, parsers := range allProtoc {
+		prefix := getPrefix(path, s)
+		for _, fileParser := range parsers {
 			for _, service := range fileParser.Services {
 				for _, rpc := range service.Rpc {
 					rpcToPath(prefix, rpc, &swagger, parsers, allProtoc, service.Opt)
@@ -200,6 +206,14 @@ func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, now
 					if endpoint != nil {
 						code := option.Map["Code"]
 						resp := option.Map["Response"]
+
+						if _, ok := swagger.Definitions[resp]; !ok {
+							// 如果不存在，搜索本包
+							if _, ok := swagger.Definitions[pge+"."+resp]; ok {
+								resp = pge + "." + resp
+							}
+						}
+
 						codeInt, _ := strconv.Atoi(code)
 						if isValidHTTPStatusCode(codeInt) {
 							endpoint.Responses[code] = &openapi.Response{
