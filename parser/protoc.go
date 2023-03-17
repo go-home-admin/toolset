@@ -204,11 +204,12 @@ func serverOption(l []*word, offset int) (Option, int) {
 	}
 	val, i := GetFistWord(l[offset:])
 	var opVal string
-	opMap := make(map[string]string)
+	var opMap map[string]string = nil
 	if HasPrefix(l[offset+i].Str, "\"") {
 		opVal = val[1 : len(val)-1]
 		offset = offset + i
 	} else {
+		opMap = make(map[string]string)
 		// option 值是对象
 		st, et := GetBrackets(l[offset+i-1:], "{", "}")
 		nl := l[offset+i-1+st : offset+i-1+et]
@@ -268,7 +269,9 @@ func protoService(l []*word, offset int) (Service, int) {
 			case "option":
 				var val Option
 				val, offset = serverOption(nl, offset)
+				val.Doc = strings.ReplaceAll(doc, "//", "")
 				got.Opt[val.Key] = val
+				doc = ""
 			case "rpc":
 				var val ServiceRpc
 				val, offset = protoRpc(nl, offset)
@@ -309,18 +312,22 @@ func protoRpc(l []*word, offset int) (ServiceRpc, int) {
 	st, et := GetBrackets(l[offset:], "{", "}")
 	newOffset := offset + et + 1
 	nl := l[offset+st : newOffset]
+	doc := ""
 	for offset := 0; offset < len(nl); offset++ {
 		work := nl[offset]
 		switch work.Ty {
 		case wordT_line:
 		case wordT_division:
 		case wordT_doc:
+			doc += work.Str
 		case wordT_word:
 			switch work.Str {
 			case "option":
 				var val Option
 				val, offset = serverOption(nl, offset)
+				val.Doc = strings.ReplaceAll(doc, "//", "")
 				opt[val.Key] = append(opt[val.Key], val)
+				doc = ""
 			}
 		}
 	}

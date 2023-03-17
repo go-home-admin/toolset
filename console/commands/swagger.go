@@ -160,6 +160,10 @@ func getUrl(opts map[string][]parser.Option) string {
 	return urlPath
 }
 
+func isValidHTTPStatusCode(code int) bool {
+	return code >= 100 && code <= 599
+}
+
 func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser, serviceOpt map[string]parser.Option) {
 	for _, options := range service.Opt {
 		for _, option := range options {
@@ -196,11 +200,28 @@ func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, now
 					if endpoint != nil {
 						code := option.Map["Code"]
 						resp := option.Map["Response"]
-						endpoint.Responses[code] = &openapi.Response{
-							Description: option.Doc,
-							Schema: &openapi.Schema{
-								Ref: "#/definitions/" + resp,
-							},
+						codeInt, _ := strconv.Atoi(code)
+						if isValidHTTPStatusCode(codeInt) {
+							endpoint.Responses[code] = &openapi.Response{
+								Description: option.Doc,
+								Schema: &openapi.Schema{
+									Ref: "#/definitions/" + resp,
+								},
+							}
+						} else {
+							// 非法的状态码，自动补充一个
+							for i := 201; i < 599; i++ {
+								intCode := strconv.Itoa(i)
+								if _, ok := endpoint.Responses[intCode]; !ok {
+									endpoint.Responses[intCode] = &openapi.Response{
+										Description: fmt.Sprintf("logic(%s)", code) + option.Doc,
+										Schema: &openapi.Schema{
+											Ref: "#/definitions/" + resp,
+										},
+									}
+									break
+								}
+							}
 						}
 					}
 				}
