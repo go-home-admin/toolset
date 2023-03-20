@@ -57,7 +57,7 @@ func (ProtocCommand) Execute(input command.Input) {
 	var outTemp, outPath string
 	out := input.GetOption("go_out")
 	out = strings.Replace(out, "@root", root, 1)
-	if outIndex := strings.Index(out, ":"); outIndex != -1 {
+	if outIndex := strings.Index(out, ":"); outIndex != -1 && string(out[outIndex+1]) != "\\" {
 		outPath = out[outIndex+1:]
 		outPath, _ = filepath.Abs(outPath + "/../temp")
 		_ = os.RemoveAll(outPath)
