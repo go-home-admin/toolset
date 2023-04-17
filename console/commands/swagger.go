@@ -285,13 +285,6 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 	if protocMessage == nil {
 		return got
 	}
-	in := "query"
-	switch method {
-	case "http.Get":
-	default:
-		in = "formData"
-	}
-
 	for _, option := range protocMessage.Attr {
 		doc, isRequired := filterRequired(option.Doc)
 		doc = getTitle(doc)
@@ -303,7 +296,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 					Description: doc,
 					Enum:        nil,
 					Format:      option.Ty,
-					In:          in,
+					In:          "query",
 					Required:    isRequired,
 					Items: &openapi.Schema{
 						Description: doc,
@@ -319,7 +312,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 					Name:        option.Name,
 					Description: doc,
 					Type:        "array",
-					In:          in,
+					In:          "query",
 					Required:    isRequired,
 					Items: &openapi.Schema{
 						Ref:         getRef(pge, option.Ty),
@@ -333,7 +326,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 		} else if isProtoBaseType(option.Ty) {
 			attr := &openapi.Parameter{
 				Name:        option.Name,
-				In:          in,
+				In:          "query",
 				Description: doc,
 				Type:        getProtoToSwagger(option.Ty),
 				Format:      option.Ty,
@@ -347,7 +340,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 				Description: doc,
 				Type:        getProtoToSwagger(option.Ty),
 				Format:      option.Ty,
-				In:          in,
+				In:          "query",
 				Required:    isRequired,
 				Schema: &openapi.Schema{
 					Type:        "object",
