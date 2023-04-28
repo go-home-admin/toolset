@@ -187,6 +187,7 @@ func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, now
 			endpoint := &openapi.Endpoint{}
 			switch option.Key {
 			case "http.Get", "http.Put", "http.Post", "http.Patch", "http.Delete":
+				service.Doc = filterTag(service.Doc)
 				endpoint.Description = service.Doc + option.Doc
 				endpoint.Summary = service.Doc + option.Doc
 				endpoint.Tags = strings.Split(pge, ".")
@@ -555,4 +556,9 @@ func filterRequired(doc string) (string, bool) {
 		return doc, true
 	}
 	return doc, false
+}
+
+func filterTag(str string) string {
+	re := regexp.MustCompile("@(tag|Tag|TAG)\\(\\\"([a-zA-Z]+)\"[,\\s\\\"]+([^\"]+)\"\\)")
+	return strings.Trim(re.ReplaceAllString(str, ""), "\r\n")
 }
