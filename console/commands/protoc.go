@@ -32,7 +32,7 @@ func (ProtocCommand) Configure() command.Configure {
 				{
 					Name:        "proto_path",
 					Description: "protoc后面拼接的proto_path, 可以传入多个",
-					Default:     "@root/protobuf/common",
+					Default:     "",
 				},
 				{
 					Name:        "go_out",
@@ -76,6 +76,9 @@ func (ProtocCommand) Execute(input command.Input) {
 
 	pps := make([]string, 0)
 	for _, s := range input.GetOptions("proto_path") {
+		if s == "" {
+			continue
+		}
 		s = strings.Replace(s, "@root", root, 1)
 		pps = append(pps, "--proto_path="+s)
 		// 子目录也加入进来
@@ -86,8 +89,20 @@ func (ProtocCommand) Execute(input command.Input) {
 	// path/*.proto 不是protoc命令提供的, 如果这里执行需要每一个文件一个命令
 	for _, dir := range parser.GetChildrenDir(path) {
 		for _, info := range dir.GetFiles(".proto") {
+			ppps := make([]string, len(pps))
+			copy(ppps, pps)
+			gof, _ := parser.GetProtoFileParser(info.Path)
+			if gof.Imports != nil {
+				for _, imts := range gof.Imports {
+					imts = scanFileDir(root, imts)
+					if imts != "" {
+						ppps = append(ppps, "--proto_path="+imts)
+					}
+				}
+			}
+
 			cods := []string{"--proto_path=" + dir.Path}
-			cods = append(cods, pps...)
+			cods = append(cods, ppps...)
 			cods = append(cods, "--go_out="+outTemp)
 			cods = append(cods, info.Path)
 
@@ -116,6 +131,21 @@ func (ProtocCommand) Execute(input command.Input) {
 
 	// 基础proto生成后, 生成Tag
 	genProtoTag(out)
+}
+
+func scanFileDir(root, file string) string {
+	imts := root + "/" + file
+	if _, err := os.Stat(imts); !os.IsNotExist(err) {
+		return root
+	}
+
+	for _, dir := range parser.GetChildrenDir(root) {
+		imts = dir.Path + "/" + file
+		if _, err := os.Stat(imts); !os.IsNotExist(err) {
+			return dir.Path
+		}
+	}
+	return ""
 }
 
 func genProtoTag(out string) {

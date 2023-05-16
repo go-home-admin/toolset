@@ -68,7 +68,12 @@ func GetChildrenDir(path string) []DirInfo {
 				Name: file.Name(),
 				Path: path + "/" + file.Name(),
 			})
-			got = append(got, GetChildrenDir(path+"/"+file.Name())...)
+			next := GetChildrenDir(path + "/" + file.Name())
+			for _, s := range next {
+				if s.Path != path+"/"+file.Name() {
+					got = append(got, s)
+				}
+			}
 		}
 	}
 
