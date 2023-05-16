@@ -449,8 +449,8 @@ func enumToMessage(pge string, enum parser.Enum) (string, *openapi.Schema) {
 	for _, opt := range enum.Opt {
 		attr := &openapi.Schema{
 			Description: "enum|" + getTitle(opt.Doc),
-			Type:        "number",
-			Format:      "uint",
+			Type:        opt.Name,
+			Format:      "number",
 		}
 		properties[fmt.Sprint(opt.Num)] = attr
 	}
