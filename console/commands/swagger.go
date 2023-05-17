@@ -446,13 +446,13 @@ func enumToMessage(pge string, enum parser.Enum) (string, *openapi.Schema) {
 	schema := &openapi.Schema{}
 	schema.Description = enum.Doc
 	properties := make(map[string]*openapi.Schema)
-	for i, opt := range enum.Opt {
+	for _, opt := range enum.Opt {
 		attr := &openapi.Schema{
 			Description: "enum|" + getTitle(opt.Doc),
-			Type:        "number",
-			Format:      "uint",
+			Type:        opt.Name,
+			Format:      "number",
 		}
-		properties[strconv.Itoa(i)] = attr
+		properties[fmt.Sprint(opt.Num)] = attr
 	}
 	schema.Properties = properties
 	schema.Format = "number"
