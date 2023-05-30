@@ -217,7 +217,7 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 		name = name[1:]
 	}
 	tag := k.Tag["inject"]
-	if tag.Count() < 2 {
+	if tag == "" {
 		return alias + genInitializeNewStr(name) + "()"
 	} else {
 		beanAlias := tag.Get(0)
@@ -237,7 +237,7 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 			}
 			beanValueNextVal := strings.Trim(beanValue[startTemp+1:], ")")
 			got = got + ".GetBean(*" + providers + "GetBean(\"" + beanValueNextName + "\").(" + providers + "Bean).GetBean(\"" + beanValueNextVal + "\").(*string))"
-		} else if tag.Count() == 2 {
+		} else if tag.Count() <= 2 {
 			got = got + ".GetBean(\"" + beanValue + "\")"
 		} else if tag.Count() == 3 {
 			beanValue = beanValue + ", " + tag.Get(2)
