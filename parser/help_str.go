@@ -457,10 +457,13 @@ func GenImportAlias(path, packageName string, m map[string]string) map[string]st
 		keys = append(keys, s)
 	}
 	sort.Strings(keys)
-	for _, k := range keys {
-		imp := m[k]
-		temp := strings.Split(imp, "/")
-		key := temp[len(temp)-1]
+	for _, imp := range keys {
+		key := m[imp]
+
+		temp := strings.Split(key, "/")
+		if len(temp) != 1 {
+			key = temp[len(temp)-1]
+		}
 
 		if _, ok := aliasMapImport[key]; ok {
 			for i := 1; i < 1000; i++ {
