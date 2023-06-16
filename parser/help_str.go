@@ -450,16 +450,20 @@ func GetImportStrForMap(m map[string]string) string {
 func GenImportAlias(path, packageName string, m map[string]string) map[string]string {
 	aliasMapImport := make(map[string]string)
 	importMapAlias := make(map[string]string)
+	importCheck := make(map[string]map[string]bool)
 
 	keys := make([]string, 0)
 	for s, _ := range m {
 		keys = append(keys, s)
 	}
 	sort.Strings(keys)
-	for _, k := range keys {
-		imp := m[k]
-		temp := strings.Split(imp, "/")
-		key := temp[len(temp)-1]
+	for _, imp := range keys {
+		key := m[imp]
+
+		temp := strings.Split(key, "/")
+		if len(temp) != 1 {
+			key = temp[len(temp)-1]
+		}
 
 		if _, ok := aliasMapImport[key]; ok {
 			for i := 1; i < 1000; i++ {
@@ -471,8 +475,14 @@ func GenImportAlias(path, packageName string, m map[string]string) map[string]st
 			}
 		}
 		if key == packageName {
-			if "/bootstrap/providers" != path {
-				aliasMapImport[key+"_2"] = imp
+			kk := len(importCheck[key])
+			if kk == 0 {
+				importCheck[key] = map[string]bool{}
+			}
+			kkk := key + "_" + strconv.Itoa(kk)
+			if "/bootstrap/providers" != path && !importCheck[key][kkk] {
+				aliasMapImport[kkk] = imp
+				importCheck[key][kkk] = true
 			}
 		} else {
 			aliasMapImport[key] = imp

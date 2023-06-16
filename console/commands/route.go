@@ -194,7 +194,7 @@ func (RouteCommand) Execute(input command.Input) {
 
 				if group != "" {
 					g := agl[group]
-					imports := module + "/app/http/" + fileParser.PackageName + "/" + parser.StringToSnake(service.Name)
+					imports := strings.Replace(outHttp, getRootPath(), module, 1) + "/" + fileParser.PackageName + "/" + parser.StringToSnake(service.Name)
 					g.imports[imports] = imports
 
 					g.controllers = append(g.controllers, Controller{

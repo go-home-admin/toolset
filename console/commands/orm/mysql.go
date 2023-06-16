@@ -475,21 +475,26 @@ func Filter(tableColumns map[string][]tableColumn) TableInfo {
 		Columns: make(map[string][]tableColumn),
 		Infos:   make(map[string]TableInfos),
 	}
-
+	tableSort := make(map[string]int)
 	for tableName, columns := range tableColumns {
 		arr := strings.Split(tableName, "_")
 		arrLen := len(arr)
 		if arrLen > 1 {
 			str := arr[arrLen-1]
-			_, err := strconv.Atoi(str)
+			tn, err := strconv.Atoi(str)
 			if err == nil {
 				tableName = strings.ReplaceAll(tableName, "_"+str, "")
 				info.Infos[tableName] = TableInfos{
 					"sub": "true", // 分表
 				}
+				// 保留数字最大的
+				n, ok := tableSort[tableName]
+				if ok && n > tn {
+					continue
+				}
+				tableSort[tableName] = tn
 			}
 		}
-
 		info.Columns[tableName] = columns
 	}
 	return info

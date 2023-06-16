@@ -227,6 +227,9 @@ type TagDoc string
 func (t TagDoc) Get(num int) string {
 	s := string(t)
 	sr := strings.Split(s, ",")
+	if len(sr) <= num {
+		return ""
+	}
 	return strings.Trim(sr[num], " ")
 }
 

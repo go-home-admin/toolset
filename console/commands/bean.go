@@ -86,8 +86,8 @@ func (BeanCommand) Execute(input command.Input) {
 			for _, goType := range fileParser.Types {
 				for _, attr := range goType.Attrs {
 					if attr.HasTag("inject") {
-						for _, impStr := range fileParser.Imports {
-							bc.imports[impStr] = impStr
+						for alias, impStr := range fileParser.Imports {
+							bc.imports[impStr] = alias
 						}
 
 						break
@@ -105,7 +105,8 @@ func (BeanCommand) Execute(input command.Input) {
 }
 
 type beanCache struct {
-	name       string
+	name string
+	// path => alias
 	imports    map[string]string
 	structList []parser.GoType
 }
@@ -210,14 +211,18 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 
 	if !k.InPackage {
 		a := m[k.TypeImport]
-		alias = a + "."
+		if a == "" {
+			panic("识别到不明确的import, 最后一个目录和package名称不一致时，需要手动， 例如\nredis \"github.com/go-redis/redis/v8\"")
+		} else {
+			alias = a + "."
+		}
 		arr := strings.Split(k.TypeName, ".")
 		name = arr[len(arr)-1]
 	} else if name[0:1] == "*" {
 		name = name[1:]
 	}
 	tag := k.Tag["inject"]
-	if tag.Count() < 2 {
+	if tag == "" {
 		return alias + genInitializeNewStr(name) + "()"
 	} else {
 		beanAlias := tag.Get(0)
@@ -237,7 +242,7 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 			}
 			beanValueNextVal := strings.Trim(beanValue[startTemp+1:], ")")
 			got = got + ".GetBean(*" + providers + "GetBean(\"" + beanValueNextName + "\").(" + providers + "Bean).GetBean(\"" + beanValueNextVal + "\").(*string))"
-		} else if tag.Count() == 2 {
+		} else if tag.Count() <= 2 {
 			got = got + ".GetBean(\"" + beanValue + "\")"
 		} else if tag.Count() == 3 {
 			beanValue = beanValue + ", " + tag.Get(2)
