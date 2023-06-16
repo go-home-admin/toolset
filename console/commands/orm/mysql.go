@@ -134,10 +134,12 @@ func genFieldFunc(table string, columns []tableColumn) string {
 				goType = "*" + goType
 			}
 			// if 主键, 生成In, > <
-			str += "\nfunc (orm *Orm" + TableName + ") InsertGet" + column.ColumnName + "(row *" + TableName + ") " + goType + " {" +
-				"\n\torm.db.Create(row)" +
-				"\n\treturn row." + column.ColumnName +
-				"\n}"
+			if column.COLUMN_KEY == "PRI" {
+				str += "\nfunc (orm *Orm" + TableName + ") InsertGet" + column.ColumnName + "(row *" + TableName + ") " + goType + " {" +
+					"\n\torm.db.Create(row)" +
+					"\n\treturn row." + column.ColumnName +
+					"\n}"
+			}
 
 			str += "\nfunc (orm *Orm" + TableName + ") Where" + column.ColumnName + "In(val []" + column.GoType + ") *Orm" + TableName + " {" +
 				"\n\torm.db.Where(\"`" + column.COLUMN_NAME + "` IN ?\", val)" +
