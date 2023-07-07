@@ -286,6 +286,12 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 	if protocMessage == nil {
 		return got
 	}
+	in := "query"
+	switch method {
+	case "http.Get":
+	default:
+		in = "formData"
+	}
 	for _, option := range protocMessage.Attr {
 		doc, isRequired := filterRequired(option.Doc)
 		doc = getTitle(doc)
@@ -297,7 +303,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 					Description: doc,
 					Enum:        nil,
 					Format:      option.Ty,
-					In:          "query",
+					In:          in,
 					Required:    isRequired,
 					Items: &openapi.Schema{
 						Description: doc,
@@ -313,7 +319,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 					Name:        option.Name,
 					Description: doc,
 					Type:        "array",
-					In:          "query",
+					In:          in,
 					Required:    isRequired,
 					Items: &openapi.Schema{
 						Ref:         getRef(pge, option.Ty),
@@ -327,7 +333,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 		} else if isProtoBaseType(option.Ty) {
 			attr := &openapi.Parameter{
 				Name:        option.Name,
-				In:          "query",
+				In:          in,
 				Description: doc,
 				Type:        getProtoToSwagger(option.Ty),
 				Format:      option.Ty,
@@ -341,7 +347,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 				Description: doc,
 				Type:        getProtoToSwagger(option.Ty),
 				Format:      option.Ty,
-				In:          "query",
+				In:          "query", // 对象引用只能是query, 不然页面显示错误
 				Required:    isRequired,
 				Schema: &openapi.Schema{
 					Type:        "object",
@@ -489,7 +495,7 @@ func getProtoToSwagger(t string) string {
 	if ok {
 		return ty
 	}
-	return "string"
+	return "object"
 }
 
 func getPrefix(path, s string) string {
