@@ -60,7 +60,7 @@ func (BeanCommand) Execute(input command.Input) {
 		skip[s] = true
 	}
 
-	fileList := parser.NewGoParserForDir(scan)
+	fileList := parser.NewAst(scan)
 	var keys []string
 	for s, _ := range fileList {
 		keys = append(keys, s)
@@ -86,11 +86,8 @@ func (BeanCommand) Execute(input command.Input) {
 			for _, goType := range fileParser.Types {
 				for _, attr := range goType.Attrs {
 					if attr.HasTag("inject") {
-						for alias, impStr := range fileParser.Imports {
-							bc.imports[impStr] = alias
-						}
-
-						break
+						// 只收集使用到的 import
+						bc.imports[fileParser.Imports[attr.TypeAlias]] = attr.TypeAlias
 					}
 				}
 
