@@ -75,6 +75,9 @@ func getAstGoFileParser(fileName string) GoFileParser {
 					for _, d := range decl.Doc.List {
 						doc = doc + d.Text + "\n"
 					}
+				} else {
+					// 没有注释, 跳过
+					continue
 				}
 				for _, spec := range decl.Specs {
 					Spec := spec.(*ast.TypeSpec)
@@ -99,7 +102,7 @@ func getAstGoFileParser(fileName string) GoFileParser {
 									attr.Name = strings.Trim(expr.Sel.Name, ".")
 								}
 								attr.TypeAlias = expr.X.(*ast.Ident).Name
-								attr.TypeName = "*" + attr.TypeAlias + "." + expr.Sel.Name
+								attr.TypeName = attr.TypeAlias + "." + expr.Sel.Name
 								attr.TypeImport = got.Imports[attr.TypeAlias]
 							} else if expr, ok := field.Type.(*ast.Ident); ok {
 								if attr.Name == "" {
@@ -145,6 +148,9 @@ func getAstGoFileParser(fileName string) GoFileParser {
 										attr.Tag[tagStrArr[0]] = TagDoc(td[1 : len(td)-1])
 									}
 								}
+							}
+							if attr.TypeName == "" {
+								continue
 							}
 							t.Attrs[attr.Name] = attr
 							t.AttrsSort = append(t.AttrsSort, attr.Name)
