@@ -268,7 +268,10 @@ func (d GoDoc) GetAlias() string {
 
 // IsPointer 普通指针
 func (receiver GoTypeAttr) IsPointer() bool {
-	return receiver.TypeName[0:1] == "*"
+	if len(receiver.TypeName) >= 1 {
+		return receiver.TypeName[0:1] == "*"
+	}
+	return false
 }
 
 func (receiver GoTypeAttr) HasTag(name string) bool {
