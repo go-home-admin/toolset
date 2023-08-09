@@ -188,6 +188,8 @@ func genProtoTag(out string) {
 					if !packageStart {
 						if bytes.Index(data, bytePackage) == 0 {
 							packageStart = true
+						} else {
+							// 补充文件级别的 tag
 							fileTags = append(fileTags, lineTags...)
 							for s, t := range lineMapTags {
 								fileMapTags[s] = t
@@ -212,9 +214,9 @@ func genProtoTag(out string) {
 							end = bytes.Index(data[start+begin:], []byte("`")) + start + begin
 						}
 						if len(tagValue) != 0 {
-							for s, t := range fileMapTags {
-								if _, ok := lineMapTags[s]; !ok {
-									lineMapTags[s] = t
+							for _, t := range fileTags {
+								if _, ok := lineMapTags[t.key]; !ok {
+									lineMapTags[t.key] = t
 									lineTags = append(lineTags, t)
 								}
 							}
@@ -224,7 +226,7 @@ func genProtoTag(out string) {
 								switch lineTag.key {
 								case "json":
 									newStr = []byte(strings.ReplaceAll(string(newStr), "json:\""+string(tagValue)+",omitempty\"", ""))
-									newStr = append(newStr, []byte(lineTag.key+":\""+
+									newStr = append(newStr, []byte(" "+lineTag.key+":\""+
 										strings.ReplaceAll(lineTag.val, "{name}", string(tagValue))+
 										"\"")...)
 								default:
