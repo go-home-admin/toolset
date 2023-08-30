@@ -258,10 +258,10 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 	str := `type {TableName} struct {`
 	for _, column := range columns {
 		p := ""
-		if *column.IS_NULLABLE == "YES" && column.COLUMN_NAME != "deleted_at" {
+		if *column.IS_NULLABLE == "YES" && !(column.COLUMN_NAME == "deleted_at" && column.GoType == "database.Time") {
 			p = "*"
 		}
-		if column.COLUMN_NAME == "deleted_at" {
+		if column.COLUMN_NAME == "deleted_at" && column.GoType == "database.Time" {
 			column.GoType = "gorm.DeletedAt"
 		}
 
