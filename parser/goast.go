@@ -111,8 +111,13 @@ func getAstGoFileParser(fileName string) GoFileParser {
 								attr.TypeName = expr.Name
 								attr.InPackage = true
 							} else if expr, ok := field.Type.(*ast.MapType); ok {
-								attr.TypeName = expr.Key.(*ast.Ident).Name
-								attr.InPackage = true
+								if _, ok := expr.Key.(*ast.SelectorExpr); ok {
+									attr.TypeName = "map todo"
+									attr.InPackage = true
+								} else {
+									attr.TypeName = expr.Key.(*ast.Ident).Name
+									attr.InPackage = true
+								}
 							} else if _, ok := field.Type.(*ast.ArrayType); ok {
 								attr.TypeName = "[]todo"
 							} else if _, ok := field.Type.(*ast.InterfaceType); ok {
