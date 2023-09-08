@@ -285,9 +285,9 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 	}
 	str += "\n}\n\n"
 	// 声明表字段
-	str += "type {TableName}Field string\nvar (\n"
+	str += "var (\n"
 	for _, column := range columns {
-		str += fmt.Sprintf("{TableName}Field%s {TableName}Field = \"%s\"\n", parser.StringToHump(column.ColumnName), column.ColumnName)
+		str += fmt.Sprintf("{TableName}Field%s = \"%s\"\n", parser.StringToHump(column.ColumnName), column.ColumnName)
 	}
 	str += ")"
 
