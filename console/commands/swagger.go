@@ -187,9 +187,8 @@ func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, now
 			endpoint := &openapi.Endpoint{}
 			switch option.Key {
 			case "http.Get", "http.Put", "http.Post", "http.Patch", "http.Delete":
-				service.Doc = filterTag(service.Doc)
 				endpoint.Description = service.Doc + option.Doc
-				endpoint.Summary = service.Doc + option.Doc
+				endpoint.Summary = filterTag(service.Doc) + option.Doc
 				endpoint.Tags = strings.Split(pge, ".")
 				endpoint.Parameters = messageToParameters(option.Key, service.Param, nowDirProtoc, allProtoc)
 				endpoint.Responses = map[string]*openapi.Response{
