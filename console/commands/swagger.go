@@ -401,7 +401,8 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 			if isProtoBaseType(option.Ty) {
 				// 基础类型的数组
 				attr := &openapi.Schema{
-					Type: "array",
+					Type:        "array",
+					Description: doc,
 					Items: &openapi.Schema{
 						Description: doc,
 						Type:        getProtoToSwagger(option.Ty),
@@ -421,7 +422,8 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 			} else {
 				// 引用其他对象
 				attr := &openapi.Schema{
-					Type: "array",
+					Type:        "array",
+					Description: doc,
 					Items: &openapi.Schema{
 						Ref:         getRef(pge, option.Ty),
 						Description: doc,
