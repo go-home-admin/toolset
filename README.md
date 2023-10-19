@@ -6,6 +6,9 @@ go install github.com/go-home-admin/toolset@latest
 ````
 
 2. 直接下载二进制文件， 放到任意 path 包含的路径下
+````
+https://github.com/go-home-admin/toolset/releases
+````
 
 
 ![image](https://github.com/go-home-admin/toolset/blob/main/show.gif)
