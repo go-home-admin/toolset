@@ -17,14 +17,21 @@ user@macOs path $ toolset
 Usage:
   command [options] [arguments] [has]
 Base Options:
+  -debug                 是否显示明细
+  -root                  获取项目跟路径, 默认当前目录
   -h                     显示帮助信息
-  -root                  获取项目跟路径
 Available commands:
-  help         帮助命令
-  make:bean    生成依赖注入的声明源代码文件
-  make:orm     根据配置文件连接数据库, 生成orm源码
-  make:protoc  组装和执行protoc命令
-  make:route   根据protoc文件定义, 生成路由信息和控制器文件
+  help          帮助命令
+  make          执行所有make命令, 默认参数
+  make:bean     生成依赖注入的声明源代码文件, 使用@Bean注解, 和inject引入
+  make:curd     生成curd基础代码, 默认使用交互输入, 便捷调用 
+  make:grpc     根据protoc文件定义, 生成路grpc基础文件
+  make:js       根据swagger生成js请求文件
+  make:mongo    根据proto文件, 生成mongodb的orm源码
+  make:orm      根据配置文件连接数据库, 生成orm源码
+  make:protoc   组装和执行protoc命令
+  make:route    根据protoc文件定义, 生成路由信息和控制器文件
+  make:swagger  生成文档
 ````
 
 ## 生成ORM
@@ -71,14 +78,17 @@ user@macOs path $ toolset make:bean
 user@macOs path $ toolset make:bean -h
 Usage:
   make:bean
-    -scan                = shell(pwd)
+    -name                = New{name}
+    -scan                = @root
     -skip                = @root/generate
 Arguments:
 Option:
-  -scan                  扫码目录下的源码
+  -name                  New函数别名, 如果兼容旧的项目可以设置
+  -scan                  扫码目录下的源码; shell(pwd)
   -skip                  跳过目录
-  -h                     显示帮助信息
+  -debug                 是否显示明细
   -root                  获取项目跟路径, 默认当前目录
+  -h                     显示帮助信息
 Has:
   -f                     强制更新
 Description:
@@ -107,4 +117,24 @@ service Controller {
     }
 }
 message TResponse {}
+````
+
+# 生成 js+注释 文件
+````shell
+user@macOs toolset % toolset make:js -h  
+Usage:
+  make:js
+    -in                  = @root/web/swagger.json
+    -out                 = @root/resources/src/api/swagger_gen.js
+Arguments:
+Option:
+  -in                    swagger.json路径, 可本地可远程
+  -out                   js文件输出路径
+  -tag                   只生成指定tag的请求
+  -debug                 是否显示明细
+  -root                  获取项目跟路径, 默认当前目录
+  -h                     显示帮助信息
+Has:
+Description:
+   根据swagger生成js请求文件
 ````
