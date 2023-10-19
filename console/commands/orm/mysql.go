@@ -317,9 +317,16 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 			}
 		}
 	}
+	str += "\n}\n\n"
+	// 声明表字段
+	str += "var (\n"
+	for _, column := range columns {
+		str += fmt.Sprintf("{TableName}Field%s = \"%s\"\n", parser.StringToHump(column.COLUMN_NAME), column.COLUMN_NAME)
+	}
+	str += ")"
 
 	str = strings.ReplaceAll(str, "{TableName}", TableName)
-	return "\n" + str + "\n}"
+	return "\n" + str + "\n"
 }
 
 func genGormTag(column tableColumn) string {

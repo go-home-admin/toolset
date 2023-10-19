@@ -16,6 +16,8 @@ import (
 // SwaggerCommand @Bean
 type SwaggerCommand struct{}
 
+var isQuery bool
+
 func (SwaggerCommand) Configure() command.Configure {
 	return command.Configure{
 		Name:        "make:swagger",
@@ -37,6 +39,11 @@ func (SwaggerCommand) Configure() command.Configure {
 					Description: "生成文件到指定目录",
 					Default:     "@root/web/swagger_gen.json",
 				},
+				{
+					Name:        "query",
+					Description: "是否强制请求参数为query类型",
+					Default:     "false",
+				},
 			},
 		},
 	}
@@ -47,6 +54,10 @@ func (SwaggerCommand) Execute(input command.Input) {
 	source := input.GetOption("source")
 	out := input.GetOption("out")
 	path := input.GetOption("path")
+
+	if input.GetOption("query") == "true" || input.GetOption("query") == "1" {
+		isQuery = true
+	}
 
 	swagger := openapi.Spec{
 		Swagger:  "2.0",
@@ -187,9 +198,8 @@ func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, now
 			endpoint := &openapi.Endpoint{}
 			switch option.Key {
 			case "http.Get", "http.Put", "http.Post", "http.Patch", "http.Delete":
-				service.Doc = filterTag(service.Doc)
 				endpoint.Description = service.Doc + option.Doc
-				endpoint.Summary = service.Doc + option.Doc
+				endpoint.Summary = filterTag(service.Doc) + option.Doc
 				endpoint.Tags = strings.Split(pge, ".")
 				endpoint.Parameters = messageToParameters(option.Key, service.Param, nowDirProtoc, allProtoc)
 				endpoint.Responses = map[string]*openapi.Response{
@@ -286,11 +296,14 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 	if protocMessage == nil {
 		return got
 	}
-	in := "query"
+	in := "formData"
 	switch method {
 	case "http.Get":
+		in = "query"
 	default:
-		in = "formData"
+		if isQuery {
+			in = "query"
+		}
 	}
 	for _, option := range protocMessage.Attr {
 		doc, isRequired := filterRequired(option.Doc)
@@ -366,7 +379,8 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 func getRef(pge string, ty string) string {
 	arr := strings.Split(ty, ".")
 	if len(arr) == 1 {
-		return "#/definitions/" + pge + "." + ty
+		arr = strings.Split(pge, ".")
+		return "#/definitions/" + arr[len(arr)-1] + "." + ty
 	}
 
 	return "#/definitions/" + ty
@@ -387,7 +401,8 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 			if isProtoBaseType(option.Ty) {
 				// 基础类型的数组
 				attr := &openapi.Schema{
-					Type: "array",
+					Type:        "array",
+					Description: doc,
 					Items: &openapi.Schema{
 						Description: doc,
 						Type:        getProtoToSwagger(option.Ty),
@@ -407,7 +422,8 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 			} else {
 				// 引用其他对象
 				attr := &openapi.Schema{
-					Type: "array",
+					Type:        "array",
+					Description: doc,
 					Items: &openapi.Schema{
 						Ref:         getRef(pge, option.Ty),
 						Description: doc,
