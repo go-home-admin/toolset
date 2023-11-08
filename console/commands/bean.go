@@ -83,7 +83,14 @@ func (BeanCommand) Execute(input command.Input) {
 		bc := newBeanCache()
 		for _, fileParser := range fileParsers {
 			bc.name = fileParser.PackageName
-			for _, goType := range fileParser.Types {
+			keys := make([]string, 0)
+			for k := range fileParser.Types {
+				keys = append(keys, k)
+			}
+			sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+			// 排序后循环 type
+			for _, k := range keys {
+				goType := fileParser.Types[k]
 				for _, attr := range goType.Attrs {
 					if attr.HasTag("inject") {
 						// 只收集使用到的 import

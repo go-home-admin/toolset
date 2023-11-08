@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 )
 
@@ -453,14 +454,16 @@ func genRoutesFunc(g *ApiGroups, m map[string]string) string {
 		"\n\treturn map[*" + homeApi + ".Config]func(c *" + homeGin + ".Context){"
 
 	for _, server := range g.servers {
-		for s, v := range server.Opt {
+		for _, s := range forOpt(server.Opt) {
+			v := server.Opt[s]
 			if s == "http.Resource" {
 				str += "\n\t\t" + homeApi + ".Get(\"" + v.Val + "\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
 				str += "\n\t\t" + homeApi + ".Post(\"" + v.Val + "\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
 				str += "\n\t\t" + homeApi + ".Any(\"" + v.Val + "/:action\"):" + "c." + parser.StringToSnake(server.Name) + ".GinHandleCurd,"
 			}
 		}
-		for rName, rpc := range server.Rpc {
+		for _, rName := range forServerOpt(server.Rpc) {
+			rpc := server.Rpc[rName]
 			for _, options := range rpc.Opt {
 				for _, option := range options {
 					if strings.Index(option.Key, "http.") == 0 {
@@ -475,6 +478,24 @@ func genRoutesFunc(g *ApiGroups, m map[string]string) string {
 	}
 
 	return str + "\n\t}\n}"
+}
+
+func forServerOpt(m map[string]parser.ServiceRpc) []string {
+	keys := make([]string, 0)
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
+}
+
+func forOpt(m map[string]parser.Option) []string {
+	keys := make([]string, 0)
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
 }
 
 func genRoutesStruct(g *ApiGroups, m map[string]string) string {
