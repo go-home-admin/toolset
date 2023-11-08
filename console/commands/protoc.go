@@ -253,7 +253,7 @@ func genProtoTag(out string) {
 				fileNewStr = append(fileNewStr, newStr...)
 			}
 
-			defer os.WriteFile(file.Path, []byte(strings.TrimSpace(string(fileNewStr))), 0760)
+			defer os.WriteFile(file.Path, []byte(strings.TrimSpace(string(fileNewStr))+"\n"), 0760)
 		}
 	}
 }
