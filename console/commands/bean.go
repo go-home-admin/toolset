@@ -327,7 +327,9 @@ func getImportStr(bc beanCache, m map[string]string) string {
 	sk := sortMap(nm)
 	got := ""
 	for _, k := range sk {
-		got += "\n\t" + nm[k] + " \"" + k + "\""
+		if k != "" {
+			got += "\n\t" + nm[k] + " \"" + k + "\""
+		}
 	}
 
 	return got
