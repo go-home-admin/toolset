@@ -182,6 +182,9 @@ func genJsRequest(p openapi.Parameters, swagger openapi.Spec) string {
 		case "array":
 			t = "[]"
 			if parameter.Format != "" {
+				if ty, ok := protoToSwagger[parameter.Format]; ok {
+					parameter.Format = ty
+				}
 				t = parameter.Format + t
 			} else if parameter.Items != nil {
 				t = getObjectStrFromRef(parameter.Items.Ref, swagger) + t
