@@ -61,6 +61,10 @@ func GenMysql(name string, conf Conf, out string) {
 		mysqlTableName := parser.StringToSnake(table)
 		file := out + "/" + mysqlTableName
 
+		if _, err := os.Stat(file + "_lock.go"); !os.IsNotExist(err) {
+			continue
+		}
+
 		str := "package " + name
 		str += "\nimport (" + imports[table] + "\n)"
 		str += "\n" + genOrmStruct(table, columns, conf, relationship[table])
