@@ -571,9 +571,10 @@ func findMessage(message string, nowDirProtoc []parser.ProtocFileParser, allProt
 }
 
 func filterRequired(doc string) (string, bool) {
-	re := regexp.MustCompile("@(tag|Tag|TAG)\\(\\\"([a-zA-Z]+)\"[,\\s\\\"]+([a-zA-Z]+)\"\\)")
+	re := regexp.MustCompile("(?i)[//\\s]+@(tag)\\(\\\"binding\"([,\\s\\\"]+[^\\)]+)\\)")
 	arr := re.FindStringSubmatch(doc)
-	if len(arr) == 4 && strings.ToLower(arr[2]) == "binding" && strings.ToLower(arr[3]) == "required" {
+	r := regexp.MustCompile("(?i)[,\\s\\\"]required[,\\s\\\"]")
+	if len(arr) == 3 && r.MatchString(arr[2]) {
 		doc = strings.Trim(re.ReplaceAllString(doc, ""), "\r\n")
 		return doc, true
 	}

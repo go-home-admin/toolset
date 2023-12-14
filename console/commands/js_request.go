@@ -39,6 +39,15 @@ func (j *Js) Configure() command.Configure {
 					Name:        "tag",
 					Description: "只生成指定tag的请求",
 				},
+				{
+					Name:        "http_from",
+					Description: "指定import的http函数位置",
+					Default:     "@/utils/request",
+				},
+				{
+					Name:        "info_tags",
+					Description: "指定注释中的tag显示于接口说明",
+				},
 			},
 		},
 	}
@@ -89,8 +98,8 @@ func (j *Js) Execute(input command.Input) {
 	fixSwaggerType(&swagger)
 
 	tag := input.GetOption("tag")
-	str := `import http from '@/utils/request'
-`
+	infoTags := input.GetOptions("info_tags")
+	str := fmt.Sprintf("import http from '%s'\n", input.GetOption("http_from"))
 	for _, url := range sortPathMap(swagger.Paths) {
 		paths := swagger.Paths[url]
 		re, _ := regexp.Compile("\\$\\[.+\\]")
@@ -113,6 +122,14 @@ func (j *Js) Execute(input command.Input) {
 		for _, method := range methods {
 			if method.cm {
 				isResponse = false
+				//Tags说明
+				var tagInfo string
+				for _, s := range infoTags {
+					info := getTagInfo(method.e.Description, s)
+					if info != "" {
+						tagInfo += fmt.Sprintf("\n * @%s %s", s, info)
+					}
+				}
 				var paramNames []string
 				paramStr := genJsRequest(method.e.Parameters, swagger)
 				var dataStr string
@@ -122,7 +139,7 @@ func (j *Js) Execute(input command.Input) {
 				}
 				if len(urlParams) > 0 {
 					for _, urlParam := range urlParams {
-						paramStr += "\n * @param " + urlParam.Name + " " + urlParam.Type
+						paramStr += "\n * @param {string|number} " + urlParam.Name
 						paramNames = append(paramNames, urlParam.Name)
 					}
 				}
@@ -135,15 +152,16 @@ func (j *Js) Execute(input command.Input) {
 				}
 				str += fmt.Sprintf(`
 /**
- * %v%v
- * @returns {Promise<{code:Number,data:%v,message:string}>}
+ * %v%v%v
+ * @returns {Promise<{code:number,data:%v,message:string}>}
  * @callback
  */
 export async function %v%v(%v) {
   return await http.%v(%v%v)
 }
 `,
-					method.e.Description,
+					method.e.Summary,
+					tagInfo,
 					paramStr,
 					response,
 					parser.StringToHump(strings.Trim(strings.ReplaceAll(funcName, "/", "_"), "_")),
@@ -188,6 +206,10 @@ func genJsRequest(p openapi.Parameters, swagger openapi.Spec) string {
 				t = parameter.Format + t
 			} else if parameter.Items != nil {
 				t = getObjectStrFromRef(parameter.Items.Ref, swagger) + t
+			}
+		case "", "object":
+			if parameter.Schema != nil {
+				t = getObjectStrFromRef(parameter.Schema.Ref, swagger)
 			}
 		}
 		if i != 0 {
@@ -302,6 +324,9 @@ func getObjectStrFromRef(ref string, swagger openapi.Spec) string {
 	def := strings.Replace(ref, "#/definitions/", "", 1)
 	var params []string
 	if _, ok := swagger.Definitions[def]; ok {
+		if isEnum(swagger.Definitions[def]) {
+			return "number"
+		}
 		for key, schema := range swagger.Definitions[def].Properties {
 			if !isResponse && !parser.InArrString(key, swagger.Definitions[def].Required) {
 				key = key + "?"
@@ -325,14 +350,14 @@ func getJsType(schema *openapi.Schema, swagger openapi.Spec, ref string) string 
 			if ref == schema.Items.Ref {
 				t = "{}" + t
 			} else {
-				t = getObjectStrFromRef(schema.Items.Ref, swagger) + t
+				t = getJsType(schema.Items, swagger, schema.Items.Ref) + t
 			}
 		}
-	case "object":
-		if ref == schema.Items.Ref {
+	case "object", "":
+		if ref == schema.Ref {
 			t = "{}"
 		} else {
-			t = getObjectStrFromRef(schema.Items.Ref, swagger)
+			t = getObjectStrFromRef(schema.Ref, swagger)
 		}
 	}
 	return t

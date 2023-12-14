@@ -15,6 +15,7 @@ var _OrmCommandSingle *OrmCommand
 var _ProtocCommandSingle *ProtocCommand
 var _RouteCommandSingle *RouteCommand
 var _SwaggerCommandSingle *SwaggerCommand
+var _TsSingle *Ts
 
 func GetAllProvider() []interface{} {
 	return []interface{}{
@@ -28,6 +29,7 @@ func GetAllProvider() []interface{} {
 		NewProtocCommand(),
 		NewRouteCommand(),
 		NewSwaggerCommand(),
+		NewTs(),
 	}
 }
 
@@ -100,4 +102,11 @@ func NewSwaggerCommand() *SwaggerCommand {
 		providers.AfterProvider(_SwaggerCommandSingle, "")
 	}
 	return _SwaggerCommandSingle
+}
+func NewTs() *Ts {
+	if _TsSingle == nil {
+		_TsSingle = &Ts{}
+		providers.AfterProvider(_TsSingle, "")
+	}
+	return _TsSingle
 }

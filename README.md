@@ -119,7 +119,7 @@ service Controller {
 message TResponse {}
 ````
 
-# 生成 js+注释 文件
+# 生成 js 接口结构文件
 ````shell
 user@macOs toolset % toolset make:js -h  
 Usage:
@@ -132,9 +132,34 @@ Option:
   -out                   js文件输出路径
   -tag                   只生成指定tag的请求
   -debug                 是否显示明细
-  -root                  获取项目跟路径, 默认当前目录
+  -root                  获取项目跟路径, 默认当前目录  
+  -http_from             指定import的http函数位置
+  -info_tags             指定注释中的tag显示于接口说明
   -h                     显示帮助信息
 Has:
 Description:
    根据swagger生成js请求文件
+````
+
+# 生成 ts 接口结构文件
+比js更完整，每个参数带有注释，同时生成枚举对象
+````shell
+user@macOs toolset % toolset make:ts -h  
+Usage:
+  make:js
+    -in                  = @root/web/swagger.json
+    -out                 = @root/resources/src/api/swagger_gen.ts
+Arguments:
+Option:
+  -in                    swagger.json路径, 可本地可远程
+  -out                   ts文件输出路径
+  -tag                   只生成指定tag的请求
+  -debug                 是否显示明细
+  -root                  获取项目跟路径, 默认当前目录  
+  -http_from             指定import的http函数位置
+  -info_tags             指定注释中的tag显示于接口说明
+  -h                     显示帮助信息
+Has:
+Description:
+   根据swagger生成ts请求文件
 ````
