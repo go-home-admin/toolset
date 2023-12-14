@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ctfang/command"
+	"github.com/go-home-admin/home/bootstrap/utils"
 	"github.com/go-home-admin/toolset/console/commands/openapi"
 	"github.com/go-home-admin/toolset/parser"
 	"io"
@@ -328,6 +329,9 @@ func getObjectStrFromRef(ref string, swagger openapi.Spec) string {
 			return "number"
 		}
 		for key, schema := range swagger.Definitions[def].Properties {
+			if key == "list" {
+				utils.Dump(key)
+			}
 			if !isResponse && !parser.InArrString(key, swagger.Definitions[def].Required) {
 				key = key + "?"
 			}
@@ -345,18 +349,14 @@ func getJsType(schema *openapi.Schema, swagger openapi.Spec, ref string) string 
 	case "integer", "Number":
 		t = "number"
 	case "array":
-		t = "[]"
 		if schema.Items != nil {
-			if ref == schema.Items.Ref {
-				t = "{}" + t
-			} else {
-				t = getJsType(schema.Items, swagger, schema.Items.Ref) + t
-			}
+			t = getJsType(schema.Items, swagger, ref)
 		}
+		t += "[]"
 	case "object", "":
 		if ref == schema.Ref {
 			t = "{}"
-		} else {
+		} else if schema.Ref != "" {
 			t = getObjectStrFromRef(schema.Ref, swagger)
 		}
 	}
