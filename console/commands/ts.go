@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -284,12 +286,19 @@ func (t *Ts) getTsTypeFromSchema(schema *openapi.Schema, ref string) string {
 
 func (t *Ts) genEnums(enumName string, schema *openapi.Schema) {
 	str := fmt.Sprintf("export enum %s {\n", enumName)
-	for k, item := range schema.Properties {
-		desc := t.clearEmpty(strings.TrimLeft(item.Description, "enum|"))
+	var keys []int
+	for k, _ := range schema.Properties {
+		i, _ := strconv.Atoi(k)
+		keys = append(keys, i)
+	}
+	sort.Ints(keys)
+	for _, i := range keys {
+		k := strconv.Itoa(i)
+		desc := t.clearEmpty(strings.TrimLeft(schema.Properties[k].Description, "enum|"))
 		if desc != "" {
 			str += fmt.Sprintf("  // %s\n", desc)
 		}
-		str += fmt.Sprintf("  %s = %s,\n", item.Type, k)
+		str += fmt.Sprintf("  %s = %s,\n", schema.Properties[k].Type, k)
 	}
 	str += "}\n"
 	t.enums[enumName] = str
