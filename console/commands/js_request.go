@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ctfang/command"
-	"github.com/go-home-admin/home/bootstrap/utils"
 	"github.com/go-home-admin/toolset/console/commands/openapi"
 	"github.com/go-home-admin/toolset/parser"
 	"io"
@@ -329,9 +328,6 @@ func getObjectStrFromRef(ref string, swagger openapi.Spec) string {
 			return "number"
 		}
 		for key, schema := range swagger.Definitions[def].Properties {
-			if key == "list" {
-				utils.Dump(key)
-			}
 			if !isResponse && !parser.InArrString(key, swagger.Definitions[def].Required) {
 				key = key + "?"
 			}
