@@ -14,6 +14,7 @@ var _MongoCommandSingle *MongoCommand
 var _OrmCommandSingle *OrmCommand
 var _ProtocCommandSingle *ProtocCommand
 var _RouteCommandSingle *RouteCommand
+var _SqliteCommandSingle *SqliteCommand
 var _SwaggerCommandSingle *SwaggerCommand
 var _TsSingle *Ts
 
@@ -28,6 +29,7 @@ func GetAllProvider() []interface{} {
 		NewOrmCommand(),
 		NewProtocCommand(),
 		NewRouteCommand(),
+		NewSqliteCommand(),
 		NewSwaggerCommand(),
 		NewTs(),
 	}
@@ -95,6 +97,13 @@ func NewRouteCommand() *RouteCommand {
 		providers.AfterProvider(_RouteCommandSingle, "")
 	}
 	return _RouteCommandSingle
+}
+func NewSqliteCommand() *SqliteCommand {
+	if _SqliteCommandSingle == nil {
+		_SqliteCommandSingle = &SqliteCommand{}
+		providers.AfterProvider(_SqliteCommandSingle, "")
+	}
+	return _SqliteCommandSingle
 }
 func NewSwaggerCommand() *SwaggerCommand {
 	if _SwaggerCommandSingle == nil {
