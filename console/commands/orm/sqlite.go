@@ -57,7 +57,7 @@ func GenSqlite(table string, goType parser.GoType, out string) {
 	var baseFunStr string
 	baseFunStr = strings.ReplaceAll(baseMysqlFuncStr,
 		"tx = providers.GetBean(\"mysql, {db}\").(*gorm.DB).Model(&MysqlTableName{})",
-		"tx = DB()")
+		"tx = DB().Model(&MysqlTableName{})")
 	for old, newStr := range map[string]string{
 		"MysqlTableName": parser.StringToHump(table),
 		"{table_name}":   table,
