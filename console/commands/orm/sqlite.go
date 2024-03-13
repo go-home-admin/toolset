@@ -34,7 +34,7 @@ func GenSqlite(table string, goType parser.GoType, out string) {
 		}
 
 		columns = append(columns, tableColumn{
-			ColumnName: parser.StringToSnake(attName),
+			ColumnName: attr.Name,
 			GoType:     attr.TypeName,
 			mysql: mysql{
 
