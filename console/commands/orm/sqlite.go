@@ -28,13 +28,18 @@ func GenSqlite(table string, goType parser.GoType, out string) {
 	columns := []tableColumn{}
 	for _, attrName := range goType.AttrsSort {
 		attr := goType.Attrs[attrName]
+		attName := attr.Name
+		if attName == "ID" {
+			attName = "id"
+		}
+
 		columns = append(columns, tableColumn{
-			ColumnName: attr.Name,
+			ColumnName: parser.StringToSnake(attName),
 			GoType:     attr.TypeName,
 			mysql: mysql{
 
-				TABLE_NAME:  attr.Name,
-				COLUMN_NAME: attr.Name,
+				TABLE_NAME:  parser.StringToSnake(attName),
+				COLUMN_NAME: parser.StringToSnake(attName),
 
 				IS_NULLABLE: database.StrPointer("NO"),
 				DATA_TYPE:   attr.TypeName,
