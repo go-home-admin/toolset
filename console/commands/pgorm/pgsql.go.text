@@ -190,6 +190,21 @@ func (orm *Orm{orm_table_name}) Paginate(page int, limit int) ({orm_table_name}L
 	return list, total
 }
 
+// SimplePaginate 不统计总数的分页
+func (orm *Orm{orm_table_name}) Paginate(page int, limit int) {orm_table_name}List {
+	list := make([]*{orm_table_name}, 0)
+    if page == 0 {
+        page = 1
+    }
+
+    offset := (page - 1) * limit
+    tx := orm.db.Offset(offset).Limit(limit).Find(&list)
+    if tx.Error != nil {
+        logrus.Error(tx.Error)
+    }
+	return list
+}
+
 // FindInBatches find records in batches
 func (orm *Orm{orm_table_name}) FindInBatches(dest interface{}, batchSize int, fc func(tx *gorm.DB, batch int) error) *gorm.DB {
 	return orm.db.FindInBatches(dest, batchSize, fc)
