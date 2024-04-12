@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-func NewAst(path string) map[string][]GoFileParser {
+func NewAst(path string, skips ...map[string]bool) map[string][]GoFileParser {
 	got := make(map[string][]GoFileParser)
-	for _, dir := range GetChildrenDir(path) {
+	for _, dir := range GetChildrenDir(path, skips...) {
 		arr := make([]GoFileParser, 0)
 		for _, file := range dir.GetFiles(".go") {
 			if strings.Index(file.Name(), "_gen.go") != -1 {
@@ -114,8 +114,11 @@ func getAstGoFileParser(fileName string) GoFileParser {
 								if _, ok := expr.Key.(*ast.SelectorExpr); ok {
 									attr.TypeName = "map todo"
 									attr.InPackage = true
-								} else {
-									attr.TypeName = expr.Key.(*ast.Ident).Name
+								} else if iv, ok := expr.Key.(*ast.Ident); ok {
+									attr.TypeName = iv.Name
+									attr.InPackage = true
+								} else if iv, ok := expr.Key.(*ast.StarExpr); ok {
+									attr.TypeName = iv.X.(*ast.Ident).Name
 									attr.InPackage = true
 								}
 							} else if _, ok := field.Type.(*ast.ArrayType); ok {

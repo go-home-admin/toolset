@@ -48,7 +48,14 @@ func (di DirInfo) GetFiles(ext string) []FileInfo {
 }
 
 // GetChildrenDir 获取目录和所有子目录
-func GetChildrenDir(path string) []DirInfo {
+func GetChildrenDir(path string, skips ...map[string]bool) []DirInfo {
+	for _, skip := range skips {
+		for s := range skip {
+			if strings.Index(path, s) != -1 {
+				return nil
+			}
+		}
+	}
 	got := []DirInfo{
 		{
 			Name: filepath.Base(path),
@@ -68,7 +75,7 @@ func GetChildrenDir(path string) []DirInfo {
 				Name: file.Name(),
 				Path: path + "/" + file.Name(),
 			})
-			next := GetChildrenDir(path + "/" + file.Name())
+			next := GetChildrenDir(path+"/"+file.Name(), skips...)
 			for _, s := range next {
 				if s.Path != path+"/"+file.Name() {
 					got = append(got, s)

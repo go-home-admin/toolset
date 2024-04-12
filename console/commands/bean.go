@@ -60,7 +60,7 @@ func (BeanCommand) Execute(input command.Input) {
 		skip[s] = true
 	}
 
-	fileList := parser.NewAst(scan)
+	fileList := parser.NewAst(scan, skip)
 	var keys []string
 	for s, _ := range fileList {
 		keys = append(keys, s)
