@@ -141,7 +141,7 @@ func (orm *OrmMysqlTableName) Offset(offset int) *OrmMysqlTableName {
 	orm.db.Offset(offset)
 	return orm
 }
-// 直接查询列表, 如果需要条数, 使用Find()
+// Get 直接查询列表, 如果需要条数, 使用Find()
 func (orm *OrmMysqlTableName) Get() MysqlTableNameList {
 	got, _ := orm.Find()
 	return got

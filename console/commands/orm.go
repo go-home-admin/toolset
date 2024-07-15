@@ -65,7 +65,7 @@ func (OrmCommand) Execute(input command.Input) {
 		switch driver {
 		case "mysql":
 			orm.GenMysql(s.(string), conf, out)
-		case "pgsql":
+		case "postgresql":
 			pgorm.GenSql(s.(string), conf, out)
 		}
 

@@ -1,24 +1,6 @@
 
-func (receiver *{orm_table_name}) TableName() string {
-	return "{table_name}"
-}
-
 type Orm{orm_table_name} struct {
 	db *gorm.DB
-}
-
-func (orm *Orm{orm_table_name}) TableName() string {
-	return "{table_name}"
-}
-
-func NewOrm{orm_table_name}(txs ...*gorm.DB) *Orm{orm_table_name} {
-	var tx *gorm.DB
-	if len(txs) == 0 {
-		tx = providers.GetBean("postgresql, {connect_name}").(*gorm.DB).Model(&{orm_table_name}{})
-	} else {
-		tx = txs[0].Model(&{orm_table_name}{})
-	}
-	return &Orm{orm_table_name}{db: tx}
 }
 
 func (orm *Orm{orm_table_name}) GetDB() *gorm.DB {
@@ -220,20 +202,6 @@ func (orm *Orm{orm_table_name}) Paginate(page int, limit int) ({orm_table_name}L
 	return list, total
 }
 
-// SimplePaginate 不统计总数的分页
-func (orm *Orm{orm_table_name}) SimplePaginate(page int, limit int) {orm_table_name}List {
-	list := make([]*{orm_table_name}, 0)
-    if page == 0 {
-        page = 1
-    }
-    offset := (page - 1) * limit
-    tx := orm.db.Offset(offset).Limit(limit).Find(&list)
-    if tx.Error != nil {
-        logrus.Error(tx.Error)
-    }
-	return list
-}
-
 // FindInBatches find records in batches
 func (orm *Orm{orm_table_name}) FindInBatches(dest interface{}, batchSize int, fc func(tx *gorm.DB, batch int) error) *gorm.DB {
 	return orm.db.FindInBatches(dest, batchSize, fc)
@@ -284,20 +252,6 @@ func (orm *Orm{orm_table_name}) Sum(field string) int64 {
 	ret := result{}
 	orm.db.Select("SUM(\""+field+"\") AS s").Scan(&ret)
 	return ret.S
-}
-
-func (orm *Orm{orm_table_name}) And(fuc func(orm *Orm{orm_table_name})) *Orm{orm_table_name} {
-	ormAnd := NewOrm{orm_table_name}()
-	fuc(ormAnd)
-	orm.db.Where(ormAnd.db)
-	return orm
-}
-
-func (orm *Orm{orm_table_name}) Or(fuc func(orm *Orm{orm_table_name})) *Orm{orm_table_name} {
-	ormOr := NewOrm{orm_table_name}()
-	fuc(ormOr)
-	orm.db.Or(ormOr.db)
-	return orm
 }
 
 // Preload preload associations with given conditions
