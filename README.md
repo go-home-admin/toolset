@@ -38,7 +38,7 @@ Available commands:
 ````yaml
 # ./config/database.yaml
 connections:
-  mysql:
+  connect_name:
     driver: mysql
     host: env("DB_HOST", "127.0.0.1")
     port: env("DB_PORT", "3306")
@@ -46,6 +46,7 @@ connections:
     username: env("DB_USERNAME", "root")
     password: env("DB_PASSWORD", "123456")
 ````
+其中`connect_name`为自定义的连接名，`driver`现支持`mysql`、`postgresql`、`redis`
 ````shell
 user@macOs path $ toolset make:orm -config=./config/database.yaml -out=your_path
 ````

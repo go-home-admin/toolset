@@ -409,6 +409,7 @@ WHERE pg_class.relname = $1 AND pg_constraint.contype = 'p'
 		for __rows.Next() {
 			_ = __rows.Scan(&pkey)
 		}
+		repeatName := map[string]int{}
 		for _rows.Next() {
 			var (
 				column_name    string
@@ -421,6 +422,11 @@ WHERE pg_class.relname = $1 AND pg_constraint.contype = 'p'
 			err = _rows.Scan(&column_name, &column_default, &is_nullable, &udt_name, &comment, &index_name)
 			if err != nil {
 				panic(err)
+			}
+			if _, ok := repeatName[column_name]; ok {
+				continue
+			} else {
+				repeatName[column_name] = 1
 			}
 			var columnComment, indexName string
 			if comment != nil {
@@ -505,7 +511,7 @@ func PgTypeToGoType(pgType string, columnName string) string {
 	case "int8":
 		return "int64"
 	case "date":
-		return "datatypes.Date"
+		return "database.Time"
 	case "json", "jsonb":
 		return "database.JSON"
 	case "time", "timetz":
