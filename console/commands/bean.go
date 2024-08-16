@@ -40,6 +40,11 @@ func (BeanCommand) Configure() command.Configure {
 					Description: "跳过目录",
 					Default:     "@root/generate",
 				},
+				{
+					Name:        "skip",
+					Description: "跳过目录",
+					Default:     "@root/vendor",
+				},
 			},
 		},
 	}
