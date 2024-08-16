@@ -8,8 +8,10 @@ type Test struct {
 }
 ```
 上面代码标识，`Test ` 应该有依赖系统管理，属性TestPort 应获得一个`int`类型的配置。配置由`config`服务提供，参数是 `app.servers.http.port`，`config`服务又是由注解 @Bean("config") 管理，当然它已经在框架引导文件里定义好了，查看 [源码](https://github.com/go-home-admin/home/blob/main/bootstrap/providers/config_provider.go "源码")，你可以参考和定义更强大功能的服务提供者。编写好了，再使用工具生成注释对应的源码。
+
+执行这个命令会扫描目录, 根据注解生成对应的源码
 ```shell
-make gen
+toolset make:bean
 ```
 执行命令后，工具会在对应目录生成`z_inject_gen.go`，这个文件不应该手动维护；`Test `struct 就可以在其他地方使用了，只是手动`NewTest`, 也可以在别的地方使用`inject`注解注入
 ```go
