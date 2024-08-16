@@ -61,6 +61,9 @@ fmt.Println(user, has, users, count)
 
 ## 生成依赖注入_
 这里的原始有点像 `wire` 库, 但是不需要额外声明文件和关系, 而是使用通俗约定地生成源码，具体可以查看生成的文件`z_inject_gen.go`
+
+具体使用查看 docs 目录
+
 ````go
 // Kernel @Bean
 type Kernel struct {

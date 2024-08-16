@@ -244,6 +244,9 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 
 		got := providers + "GetBean(\"" + beanAlias + "\").(" + providers + "Bean)"
 		if strings.Index(beanValue, "@") != -1 {
+			// 嵌套时, inject: "@config("app.name")"
+			// 只支持字符串嵌套注入
+
 			startTemp := strings.Index(beanValue, "(")
 			beanValueNextName := beanValue[1:startTemp]
 			if beanValue[len(beanValue)-1:] != ")" {
@@ -252,12 +255,33 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 			beanValueNextVal := strings.Trim(beanValue[startTemp+1:], ")")
 			got = got + ".GetBean(*" + providers + "GetBean(\"" + beanValueNextName + "\").(" + providers + "Bean).GetBean(\"" + beanValueNextVal + "\").(*string))"
 		} else if tag.Count() <= 2 {
-			got = got + ".GetBean(\"" + beanValue + "\")"
+			// 如果没有默认值
+			if beanValue == "" {
+				gotType := "*" + alias + name
+
+				// 如果`inject:""`检查是否实现Bean接口, 没有实现就不调用
+				gotFuncStr := `func() {gotType} {
+			var temp = {providers}GetBean("{beanAlias}")
+			if bean, ok := temp.({providers}Bean); ok {
+				return bean.GetBean("").({gotType})
+			}
+			return temp.({gotType})
+		}()`
+				got = strings.ReplaceAll(gotFuncStr, "{providers}", providers)
+				got = strings.Replace(got, "{beanAlias}", beanAlias, 1)
+				got = strings.ReplaceAll(got, "{gotType}", gotType)
+				return got
+			} else {
+				// 必然是实现了Bean接口
+				got = got + ".GetBean(\"" + beanValue + "\")"
+			}
 		} else if tag.Count() == 3 {
+			// 多个参数||有默认值的注入
 			beanValue = beanValue + ", " + tag.Get(2)
 			got = got + ".GetBean(`" + beanValue + "`)"
 		}
-
+		// 如果被注入的是接口时, 这里的*是多余的, 还不支持注入到 type interface 的变量
+		// 如果有需要, 自行复制z_inject_gen.go内代码, 把开头*和类型*删除，就兼容了
 		return got + ".(*" + alias + name + ")"
 	}
 }
