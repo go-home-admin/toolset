@@ -57,7 +57,7 @@ type FromB interface {
 	B()
 }
 
-// 注入 b 实现, 是不能直接支持的
+// 注入 b 实现, 是不能直接支持的, 需要提前 NewB() 进行b注册到全局容器。
 // 这里不要写Bean("a")
 type GetB struct {
 	b FromB `inject:"b"`
