@@ -58,7 +58,8 @@ type FromB interface {
 }
 
 // 注入 b 实现, 是不能直接支持的, 需要提前 NewB() 进行b注册到全局容器。
-// 这里不要写Bean("a")
+// 这里不要写Bean注解, 否则会报错
+// 这种方式支持循环依赖
 type GetB struct {
 	b FromB `inject:"b"`
 }
