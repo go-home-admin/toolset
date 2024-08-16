@@ -97,7 +97,7 @@ func (BeanCommand) Execute(input command.Input) {
 			for _, k := range keys {
 				goType := fileParser.Types[k]
 				for _, attr := range goType.Attrs {
-					if attr.HasTag("inject") {
+					if attr.HasTag("inject") || attr.HasTag("impl") {
 						// 只收集使用到的 import
 						bc.imports[fileParser.Imports[attr.TypeAlias]] = attr.TypeAlias
 					}
@@ -195,6 +195,13 @@ func genProvider(bc beanCache, m map[string]string) string {
 					if tagName == "inject" {
 						str = str + "\n\t\t" +
 							sVar + "." + attrName + " = " + pointer + getInitializeNewFunName(attr, m)
+					} else if tagName == "impl" {
+						// 使用接口 接收注入
+						tmp := getInitializeNewFunName(attr, m)
+						tmp = strings.ReplaceAll(tmp, "*", "")
+
+						str = str + "\n\t\t" +
+							sVar + "." + attrName + " = " + tmp
 					}
 				}
 			}
@@ -231,6 +238,10 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 		name = name[1:]
 	}
 	tag := k.Tag["inject"]
+	if tag == "" {
+		tag = k.Tag["impl"]
+	}
+
 	if tag == "" {
 		return alias + genInitializeNewStr(name) + "()"
 	} else {

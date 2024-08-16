@@ -59,36 +59,15 @@ func (receiver DemoBean) Exit () {
 
 ### 接口注入
 
-当前为了快速解析语法树, 没有做挎包读取的功能, 无法识别接口定义, 所以需要手动编写代码, 去支持注入
-
 ~~~~go
 type FromB interface {
 	B()
 }
 
 // 注入 b 实现, 是不能直接支持的, 需要提前 NewB() 进行b注册到全局容器。
-// 这里不要写Bean注解, 否则会报错
-// 这种方式支持循环依赖
+// @Bean
 type GetB struct {
-	b FromB `inject:"b"`
-}
-
-var _GetBSingle *GetB
-
-// 手动编写代码, 去支持注入
-func NewGetB() *GetB {
-    if _GetBSingle == nil {
-        _GetBSingle = &GetB{}
-        _GetBSingle.b = func() FromB {
-            var temp = providers.GetBean("b")
-            if bean, ok := temp.(providers.Bean); ok {
-                return bean.GetBean("").(FromB)
-            }
-            return temp.(FromB)
-        }()
-        providers.AfterProvider(_GetBSingle, "a")
-    }
-    return _GetBSingle
+	b FromB `impl:"b"`
 }
 
 ~~~~
