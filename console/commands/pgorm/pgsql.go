@@ -254,7 +254,7 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 	str := `type {TableName} struct {`
 	for _, column := range columns {
 		p := ""
-		if column.IsNullable && !(column.ColumnName == "deleted_at" && column.GoType == "database.Time") {
+		if column.IsNullable && !(column.ColumnName == "deleted_at" && column.GoType == "database.Time") && column.PgType != "bytea" {
 			p = "*"
 		}
 		if column.ColumnName == "deleted_at" && column.GoType == "database.Time" {
@@ -518,6 +518,8 @@ func PgTypeToGoType(pgType string, columnName string) string {
 		return "database.Time"
 	case "numeric":
 		return "float64"
+	case "bytea":
+		return "[]byte"
 	default:
 		if strings.Contains(pgType, "timestamp") {
 			if columnName == "deleted_at" {
