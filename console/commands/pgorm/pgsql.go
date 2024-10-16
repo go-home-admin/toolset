@@ -87,6 +87,9 @@ func genListFunc(table string, columns []tableColumn) string {
 	TableName := parser.StringToHump(table)
 	str := "\ntype " + TableName + "List []*" + TableName
 	for _, column := range columns {
+		if column.GoType == "[]byte" {
+			continue
+		}
 		ColumnName := parser.StringToHump(column.ColumnName)
 		// 索引，或者枚举字段
 		if strInStr(column.ColumnName, []string{"id", "code"}) || strInStr(column.Comment, []string{"@index"}) {

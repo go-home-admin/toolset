@@ -131,7 +131,12 @@ func (j *Js) Execute(input command.Input) {
 					}
 				}
 				var paramNames []string
-				paramStr := genJsRequest(method.e.Parameters, swagger)
+				var paramStr string
+				if method.method == "get" {
+					paramStr = genJsRequest(method.e.Parameters, swagger)
+				} else if method.e.RequestBody != nil {
+					paramStr = "\n * @param {" + getObjectStrFromRef(method.e.RequestBody.Content.Json.Schema.Ref, swagger) + "} data"
+				}
 				var dataStr string
 				if paramStr != "" {
 					paramNames = append(paramNames, "data")
@@ -341,6 +346,14 @@ func getObjectStrFromRef(ref string, swagger openapi.Spec) string {
 
 func getJsType(schema *openapi.Schema, swagger openapi.Spec, ref string) string {
 	t := schema.Type
+	_ref := schema.Ref
+	if len(schema.AllOf) > 0 {
+		for _, s := range schema.AllOf {
+			if s.Ref != "" {
+				_ref = s.Ref
+			}
+		}
+	}
 	switch schema.Type {
 	case "integer", "Number":
 		t = "number"
@@ -350,10 +363,10 @@ func getJsType(schema *openapi.Schema, swagger openapi.Spec, ref string) string 
 		}
 		t += "[]"
 	case "object", "":
-		if ref == schema.Ref {
+		if ref == _ref {
 			t = "{}"
-		} else if schema.Ref != "" {
-			t = getObjectStrFromRef(schema.Ref, swagger)
+		} else if _ref != "" {
+			t = getObjectStrFromRef(_ref, swagger)
 		}
 	}
 	return t

@@ -46,16 +46,17 @@ type Path struct {
 }
 
 type Parameter struct {
-	Name        string   `json:"name,omitempty"`
-	Description string   `json:"description"`
-	Enum        []string `json:"enum,omitempty"`
-	Format      string   `json:"format,omitempty"`
-	In          string   `json:"in,omitempty"`
-	Items       *Schema  `json:"items,omitempty"`
-	Ref         string   `json:"$ref,omitempty"`
-	Required    bool     `json:"required"`
-	Schema      *Schema  `json:"schema,omitempty"`
-	Type        string   `json:"type,omitempty"`
+	Name        string      `json:"name,omitempty"`
+	Description string      `json:"description"`
+	Enum        []string    `json:"enum,omitempty"`
+	Format      string      `json:"format,omitempty"`
+	In          string      `json:"in,omitempty"`
+	Items       *Schema     `json:"items,omitempty"`
+	Ref         string      `json:"$ref,omitempty"`
+	Required    bool        `json:"required"`
+	Schema      *Schema     `json:"schema,omitempty"`
+	Type        string      `json:"type,omitempty"`
+	Example     interface{} `json:"example,omitempty"`
 }
 
 type Parameters []*Parameter
@@ -65,9 +66,28 @@ type Response struct {
 	Schema      *Schema `json:"schema,omitempty"`
 }
 
+type RequestBody struct {
+	Description string             `yaml:"summary" json:"description"`
+	Required    bool               `yaml:"summary" json:"required"`
+	Content     RequestBodyContent `yaml:"summary" json:"content"`
+}
+
+type RequestBodyContent struct {
+	Json *RequestBodyContentType `yaml:"application/json" json:"application/json,omitempty"`
+	XML  *RequestBodyContentType `yaml:"application/xml" json:"application/xml,omitempty"`
+	Form *RequestBodyContentType `yaml:"application/x-www-form-urlencoded" json:"application/x-www-form-urlencoded,omitempty"`
+	Text *RequestBodyContentType `yaml:"text/plain" json:"text/plain,omitempty"`
+}
+
+type RequestBodyContentType struct {
+	Schema   Schema      `yaml:"schema" json:"schema"`
+	Examples interface{} `yaml:"examples" json:"examples,omitempty"`
+}
+
 type Endpoint struct {
 	Summary     string               `yaml:"summary" json:"summary"`
 	Description string               `yaml:"description" json:"description"`
+	RequestBody *RequestBody         `yaml:"requestBody" json:"requestBody,omitempty"`
 	Parameters  Parameters           `yaml:"parameters" json:"parameters"`
 	Tags        []string             `yaml:"tags" json:"tags,omitempty"`
 	Responses   map[string]*Response `yaml:"responses" json:"responses"`
@@ -81,7 +101,7 @@ type Model struct {
 }
 
 type Schema struct {
-	Description string `json:"description"`
+	Description string `json:"description,omitempty"`
 
 	Ref    string   `json:"$ref,omitempty"`
 	Type   string   `json:"type,omitempty"`
@@ -95,9 +115,13 @@ type Schema struct {
 	// is an array
 	Items *Schema `json:"items,omitempty"`
 
-	Pattern   string `json:"pattern,omitempty"`
-	MaxLength int    `json:"maxLength,omitempty"`
-	MinLength int    `json:"minLength,omitempty"`
-	Maximum   int    `json:"maximum,omitempty"`
-	Minimum   int    `json:"minimum,omitempty"`
+	Pattern   string      `json:"pattern,omitempty"`
+	MaxLength int         `json:"maxLength,omitempty"`
+	MinLength int         `json:"minLength,omitempty"`
+	Maximum   int         `json:"maximum,omitempty"`
+	Minimum   int         `json:"minimum,omitempty"`
+	Example   interface{} `json:"example,omitempty"`
+
+	// only for the different Doc when it's Ref object
+	AllOf []*Schema `json:"allOf,omitempty"`
 }

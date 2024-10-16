@@ -90,18 +90,28 @@ func GetProtoFileParser(path string) (ProtocFileParser, error) {
 
 	l := getWordsWitchFile(path)
 	lastDoc := ""
+	countDoc := 0 // 超过两次回车复原0
 	for offset := 0; offset < len(l.list); offset++ {
 		work := l.list[offset]
 		// 原则上, 每个块级别的作用域必须自己处理完, 返回的偏移必须是下一个块的开始
 		switch work.Ty {
 		case wordT_line:
+			countDoc = countDoc + 1
+			if countDoc == 2 {
+				countDoc = 0
+				lastDoc = ""
+			}
 		case wordT_division:
 		case wordT_doc:
-			lastDoc = work.Str
+			if lastDoc != "" && countDoc == 1 {
+				lastDoc += "\n"
+			}
+			lastDoc += work.Str
+			countDoc = 0
 		case wordT_word:
 			switch work.Str {
 			case "syntax":
-				d.Doc = doc(lastDoc)
+				d.Doc = filterDoc(lastDoc)
 				d.Syntax, offset = protoSyntax(l.list, offset)
 				lastDoc = ""
 			case "package":
@@ -114,7 +124,7 @@ func GetProtoFileParser(path string) (ProtocFileParser, error) {
 				lastDoc = ""
 			case "option":
 				var val Option
-				val.Doc = doc(lastDoc)
+				val.Doc = filterDoc(lastDoc)
 				val, offset = protoOption(l.list, offset)
 				d.Option[val.Key] = val
 				lastDoc = ""
@@ -122,19 +132,19 @@ func GetProtoFileParser(path string) (ProtocFileParser, error) {
 				var val Service
 				val, offset = protoService(l.list, offset)
 				val.Protoc = &d
-				val.Doc = doc(lastDoc)
+				val.Doc = filterDoc(lastDoc)
 				d.Services[val.Name] = val
 				lastDoc = ""
 			case "message":
 				var val Message
 				val, offset = protoMessage(l.list, offset)
-				val.Doc = doc(lastDoc)
+				val.Doc = filterDoc(lastDoc)
 				d.Messages[val.Name] = val
 				lastDoc = ""
 			case "enum":
 				var val Enum
 				val, offset = protoEnum(l.list, offset)
-				val.Doc = doc(lastDoc)
+				val.Doc = filterDoc(lastDoc)
 				d.Enums[val.Name] = val
 				lastDoc = ""
 			case "extend":
@@ -148,7 +158,7 @@ func GetProtoFileParser(path string) (ProtocFileParser, error) {
 
 	return d, nil
 }
-func doc(doc string) string {
+func filterDoc(doc string) string {
 	doc = strings.TrimFunc(doc, IsSpaceAndEspecially)
 	return doc
 }
@@ -262,6 +272,9 @@ func protoService(l []*word, offset int) (Service, int) {
 			}
 		case wordT_division:
 		case wordT_doc:
+			if doc != "" && countDoc == 1 {
+				doc += "\n"
+			}
 			doc += work.Str
 			countDoc = 0
 		case wordT_word:
@@ -269,13 +282,13 @@ func protoService(l []*word, offset int) (Service, int) {
 			case "option":
 				var val Option
 				val, offset = serverOption(nl, offset)
-				val.Doc = strings.ReplaceAll(doc, "//", "")
+				val.Doc = filterDoc(doc)
 				got.Opt[val.Key] = val
 				doc = ""
 			case "rpc":
 				var val ServiceRpc
 				val, offset = protoRpc(nl, offset)
-				val.Doc = strings.ReplaceAll(doc, "//", "")
+				val.Doc = filterDoc(doc)
 				got.Rpc[val.Name] = val
 				doc = ""
 			}
@@ -313,19 +326,29 @@ func protoRpc(l []*word, offset int) (ServiceRpc, int) {
 	newOffset := offset + et + 1
 	nl := l[offset+st : newOffset]
 	doc := ""
+	countDoc := 0 // 超过两次回车复原0
 	for offset := 0; offset < len(nl); offset++ {
 		work := nl[offset]
 		switch work.Ty {
 		case wordT_line:
+			countDoc = countDoc + 1
+			if countDoc == 2 {
+				countDoc = 0
+				doc = ""
+			}
 		case wordT_division:
 		case wordT_doc:
+			if doc != "" && countDoc == 1 {
+				doc += "\n"
+			}
 			doc += work.Str
+			countDoc = 0
 		case wordT_word:
 			switch work.Str {
 			case "option":
 				var val Option
 				val, offset = serverOption(nl, offset)
-				val.Doc = strings.ReplaceAll(doc, "//", "")
+				val.Doc = filterDoc(doc)
 				opt[val.Key] = append(opt[val.Key], val)
 				doc = ""
 			}
@@ -373,7 +396,7 @@ func protoMessage(l []*word, offset int) (Message, int) {
 					attr.Name, _ = GetFistWord(nl[offset+1:])
 					st, et := GetBrackets(nl[offset:], "{", "}")
 					attr.Message = protoOtherMessage(attr.Name, nl[offset+st:offset+et+1])
-					attr.Doc = doc(attr.Doc)
+					attr.Doc = filterDoc(attr.Doc)
 					got.Attr = append(got.Attr, attr)
 					attr = Attr{}
 					offset = offset + et + 1
@@ -395,7 +418,7 @@ func protoMessage(l []*word, offset int) (Message, int) {
 				attr.Name = work.Str
 			} else {
 				attr.Num, _ = strconv.Atoi(work.Str)
-				attr.Doc = doc(attr.Doc)
+				attr.Doc = filterDoc(attr.Doc)
 				got.Attr = append(got.Attr, attr)
 				attr = Attr{}
 			}
@@ -434,7 +457,7 @@ func protoOtherMessage(name string, l []*word) *Message {
 					attr.Name, _ = GetFistWord(nl[offset+1:])
 					st, et := GetBrackets(nl[offset:], "{", "}")
 					attr.Message = protoOtherMessage(attr.Name, nl[offset+st:offset+et+1])
-					attr.Doc = doc(attr.Doc)
+					attr.Doc = filterDoc(attr.Doc)
 					got.Attr = append(got.Attr, attr)
 					attr = Attr{}
 					offset = offset + et + 1
@@ -456,7 +479,7 @@ func protoOtherMessage(name string, l []*word) *Message {
 				attr.Name = work.Str
 			} else {
 				attr.Num, _ = strconv.Atoi(work.Str)
-				attr.Doc = doc(attr.Doc)
+				attr.Doc = filterDoc(attr.Doc)
 				got.Attr = append(got.Attr, attr)
 				attr = Attr{}
 			}
@@ -485,7 +508,7 @@ func protoEnum(l []*word, offset int) (Enum, int) {
 				attr.Name = work.Str
 			} else {
 				attr.Num, _ = strconv.Atoi(work.Str)
-				attr.Doc = doc(attr.Doc)
+				attr.Doc = filterDoc(attr.Doc)
 				got.Opt = append(got.Opt, attr)
 				attr = Attr{}
 			}

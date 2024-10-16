@@ -38,7 +38,7 @@ func (t *Ts) Configure() command.Configure {
 				{
 					Name:        "in",
 					Description: "swagger.json路径, 可本地可远程",
-					Default:     "@root/web/swagger.json",
+					Default:     "@root/web/swagger_gen.json",
 				},
 				{
 					Name:        "out",
@@ -145,11 +145,16 @@ func (t *Ts) Execute(input command.Input) {
 			fName := parser.StringToHump(strings.Trim(strings.ReplaceAll(funcName, "/", "_"), "_"))
 			//请求参数
 			var paramStr, hasParams string
-			if len(method.e.Parameters) > 0 {
-				typeName := fName + parser.StringToHump(method.method) + "Params"
-				paramStr = "params: " + typeName
-				hasParams = "\n    params,"
+			if method.method == "get" && len(method.e.Parameters) > 0 {
+				typeName := fName + parser.StringToHump(method.method) + "Payload"
+				paramStr = "data: " + typeName
+				hasParams = "\n    data,"
 				t.genTsParams(typeName, method.e.Parameters)
+			} else if method.e.RequestBody != nil {
+				ref := strings.Replace(method.e.RequestBody.Content.Json.Schema.Ref, "#/definitions/", "", 1)
+				ref = strings.ReplaceAll(ref, ".", "_")
+				paramStr = "data: " + ref
+				hasParams = "\n    data,"
 			}
 			//URL参数
 			for _, urlParam := range urlQuery {
@@ -240,6 +245,12 @@ func (t *Ts) genType(ref string) string {
 		for k, schema := range t.swagger.Definitions[def].Properties {
 			if schema.Description != "" {
 				str += fmt.Sprintf("  // %s\n", t.clearEmpty(schema.Description))
+			} else if len(schema.AllOf) > 0 {
+				for _, s := range schema.AllOf {
+					if s.Description != "" {
+						str += fmt.Sprintf("  // %s\n", t.clearEmpty(s.Description))
+					}
+				}
 			}
 			str += fmt.Sprintf("  %s: %s;\n", k, t.getTsTypeFromSchema(schema, ref))
 		}
@@ -265,6 +276,14 @@ func (t *Ts) getTsTypeFromParameter(param *openapi.Parameter) string {
 
 func (t *Ts) getTsTypeFromSchema(schema *openapi.Schema, ref string) string {
 	ty := schema.Type
+	_ref := schema.Ref
+	if len(schema.AllOf) > 0 {
+		for _, s := range schema.AllOf {
+			if s.Ref != "" {
+				_ref = s.Ref
+			}
+		}
+	}
 	switch schema.Type {
 	case "integer", "Number":
 		ty = "number"
@@ -274,11 +293,11 @@ func (t *Ts) getTsTypeFromSchema(schema *openapi.Schema, ref string) string {
 		}
 		ty += "[]"
 	case "", "object":
-		if ref == schema.Ref {
+		if ref == _ref {
 			//结构引用自己，防止死循环
 			ty = strings.ReplaceAll(strings.Replace(ref, "#/definitions/", "", 1), ".", "_")
-		} else if schema.Ref != "" {
-			ty = t.genType(schema.Ref)
+		} else if _ref != "" {
+			ty = t.genType(_ref)
 		}
 	}
 	return ty
@@ -316,11 +335,15 @@ func isEnum(schema *openapi.Schema) bool {
 }
 
 func getTagInfo(doc, tag string) string {
-	re := regexp.MustCompile("@(tag|Tag|TAG)\\(\\\"([^\"]+)\"[,\\s\\\"]+([^\"]+)\"\\)")
-	arr := re.FindAllStringSubmatch(doc, -1)
-	for _, item := range arr {
-		if strings.ToLower(item[2]) == strings.ToLower(tag) {
-			return strings.ToLower(item[3])
+	if tag == "" {
+		return ""
+	}
+	arr := strings.Split(doc, "\n")
+	re := regexp.MustCompile("`" + tag + ":([^`]+)")
+	for _, s := range arr {
+		matches := re.FindStringSubmatch(s)
+		if matches != nil {
+			return strings.Trim(matches[1], " ")
 		}
 	}
 	return ""

@@ -16,7 +16,7 @@ import (
 // SwaggerCommand @Bean
 type SwaggerCommand struct{}
 
-var isQuery bool
+var language string
 
 func (SwaggerCommand) Configure() command.Configure {
 	return command.Configure{
@@ -40,9 +40,9 @@ func (SwaggerCommand) Configure() command.Configure {
 					Default:     "@root/web/swagger_gen.json",
 				},
 				{
-					Name:        "query",
-					Description: "是否强制请求参数为query类型",
-					Default:     "false",
+					Name:        "lang",
+					Description: "指定文档语言，如说明的下一行是‘// @lang:en name’则‘name’代替原说明",
+					Default:     "",
 				},
 			},
 		},
@@ -54,10 +54,7 @@ func (SwaggerCommand) Execute(input command.Input) {
 	source := input.GetOption("source")
 	out := input.GetOption("out")
 	path := input.GetOption("path")
-
-	if input.GetOption("query") == "true" || input.GetOption("query") == "1" {
-		isQuery = true
-	}
+	language = input.GetOption("lang")
 
 	swagger := openapi.Spec{
 		Swagger:  "2.0",
@@ -123,8 +120,10 @@ func (SwaggerCommand) Execute(input command.Input) {
 	}
 	for _, schema := range swagger.Definitions {
 		for _, parameter := range schema.Properties {
-			like[parameter.Ref] = true
-			if parameter.Items != nil {
+			if parameter.Ref != "" {
+				like[parameter.Ref] = true
+			}
+			if parameter.Items != nil && parameter.Items.Ref != "" {
 				like[parameter.Items.Ref] = true
 			}
 		}
@@ -182,6 +181,7 @@ func isValidHTTPStatusCode(code int) bool {
 }
 
 func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser, serviceOpt map[string]parser.Option) {
+	service.Doc = filterLanguage(service.Doc)
 	for _, options := range service.Opt {
 		for _, option := range options {
 			urlPath := option.Val
@@ -198,10 +198,15 @@ func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, now
 			endpoint := &openapi.Endpoint{}
 			switch option.Key {
 			case "http.Get", "http.Put", "http.Post", "http.Patch", "http.Delete":
-				endpoint.Description = service.Doc + option.Doc
-				endpoint.Summary = filterTag(service.Doc) + option.Doc
+				endpoint.Description = parseTag(service.Doc)
+				endpoint.Summary = filterTag(service.Doc)
 				endpoint.Tags = strings.Split(pge, ".")
-				endpoint.Parameters = messageToParameters(option.Key, service.Param, nowDirProtoc, allProtoc)
+				endpoint.Parameters = parseParamInPath(option)
+				if option.Key == "http.Get" {
+					endpoint.Parameters = append(endpoint.Parameters, messageToParameters(service.Param, nowDirProtoc, allProtoc)...)
+				} else {
+					endpoint.RequestBody = messageToRequestBody(service.Param, nowDirProtoc, allProtoc)
+				}
 				endpoint.Responses = map[string]*openapi.Response{
 					"200": messageToResponse(service.Return, nowDirProtoc, allProtoc),
 				}
@@ -283,30 +288,25 @@ func messageToResponse(message string, nowDirProtoc []parser.ProtocFileParser, a
 	got := &openapi.Response{
 		Description: protocMessage.Doc,
 		Schema: &openapi.Schema{
-			Ref: "#/definitions/" + pge + "." + protocMessage.Name,
+			Type:   "object",
+			Format: pge + "." + protocMessage.Name,
+			Ref:    "#/definitions/" + pge + "." + protocMessage.Name,
 		},
 	}
 
 	return got
 }
 
-func messageToParameters(method string, message string, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser) openapi.Parameters {
+func messageToParameters(message string, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser) openapi.Parameters {
 	protocMessage, pge := findMessage(message, nowDirProtoc, allProtoc)
 	got := openapi.Parameters{}
 	if protocMessage == nil {
 		return got
 	}
-	in := "formData"
-	switch method {
-	case "http.Get":
-		in = "query"
-	default:
-		if isQuery {
-			in = "query"
-		}
-	}
+	in := "query"
 	for _, option := range protocMessage.Attr {
 		doc, isRequired := filterRequired(option.Doc)
+		doc, example := filterExample(doc, option.Ty)
 		doc = getTitle(doc)
 		if option.Repeated {
 			if isProtoBaseType(option.Ty) {
@@ -318,6 +318,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 					Format:      option.Ty,
 					In:          in,
 					Required:    isRequired,
+					Example:     example,
 					Items: &openapi.Schema{
 						Description: doc,
 						Type:        getProtoToSwagger(option.Ty),
@@ -334,6 +335,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 					Type:        "array",
 					In:          in,
 					Required:    isRequired,
+					Example:     example,
 					Items: &openapi.Schema{
 						Ref:         getRef(pge, option.Ty),
 						Description: doc,
@@ -351,6 +353,7 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 				Type:        getProtoToSwagger(option.Ty),
 				Format:      option.Ty,
 				Required:    isRequired,
+				Example:     example,
 			}
 			got = append(got, attr)
 		} else {
@@ -360,8 +363,9 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 				Description: doc,
 				Type:        getProtoToSwagger(option.Ty),
 				Format:      option.Ty,
-				In:          "query", // 对象引用只能是query, 不然页面显示错误
+				In:          in, // 对象引用只能是query, 不然页面显示错误
 				Required:    isRequired,
+				Example:     example,
 				Schema: &openapi.Schema{
 					Type:        "object",
 					Description: getTitle(option.Doc),
@@ -373,6 +377,27 @@ func messageToParameters(method string, message string, nowDirProtoc []parser.Pr
 		}
 	}
 
+	return got
+}
+
+func messageToRequestBody(message string, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser) *openapi.RequestBody {
+	protocMessage, pge := findMessage(message, nowDirProtoc, allProtoc)
+	if len(protocMessage.Attr) == 0 {
+		return nil
+	}
+	doc, _ := filterRequired(protocMessage.Doc)
+	doc = filterLanguage(doc)
+	got := &openapi.RequestBody{
+		Description: parseTag(doc),
+		Content: openapi.RequestBodyContent{
+			// 目前只支持application/json
+			Json: &openapi.RequestBodyContentType{
+				Schema: openapi.Schema{
+					Ref: getRef(pge, protocMessage.Name),
+				},
+			},
+		},
+	}
 	return got
 }
 
@@ -393,6 +418,8 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 	var requireArr []string
 	for _, option := range message.Attr {
 		doc, isRequired := filterRequired(option.Doc)
+		doc, example := filterExample(doc, option.Ty)
+		doc = filterLanguage(doc)
 		doc = getTitle(doc)
 		if isRequired {
 			requireArr = append(requireArr, option.Name)
@@ -408,6 +435,7 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 						Type:        getProtoToSwagger(option.Ty),
 						Format:      option.Ty,
 					},
+					Example: example,
 				}
 				properties[option.Name] = attr
 			} else if option.Message != nil {
@@ -424,6 +452,7 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 				attr := &openapi.Schema{
 					Type:        "array",
 					Description: doc,
+					Example:     example,
 					Items: &openapi.Schema{
 						Ref:         getRef(pge, option.Ty),
 						Description: doc,
@@ -438,6 +467,7 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 				Description: doc,
 				Type:        getProtoToSwagger(option.Ty),
 				Format:      option.Ty,
+				Example:     example,
 			}
 			properties[option.Name] = attr
 		} else if option.Message != nil {
@@ -450,11 +480,28 @@ func messageToSchemas(pge string, message parser.Message, swagger *openapi.Spec)
 			}
 			properties[option.Name] = attr
 		} else {
-			attr := &openapi.Schema{
-				Description: doc,
-				Ref:         getRef(pge, option.Ty),
+			if doc == "" {
+				//使用ref的Description
+				properties[option.Name] = &openapi.Schema{
+					Description: doc,
+					Ref:         getRef(pge, option.Ty),
+				}
+			} else {
+				//使用本地的Description
+				properties[option.Name] = &openapi.Schema{
+					AllOf: []*openapi.Schema{
+						{
+							Description: doc,
+						},
+						{
+							Format: option.Ty,
+						},
+						{
+							Ref: getRef(pge, option.Ty),
+						},
+					},
+				}
 			}
-			properties[option.Name] = attr
 		}
 	}
 
@@ -493,6 +540,7 @@ func getTitle(str string) string {
 var protoToSwagger = map[string]string{
 	"double":   "number",
 	"float":    "number",
+	"int":      "integer",
 	"int32":    "integer",
 	"int64":    "integer",
 	"uint32":   "number",
@@ -571,17 +619,166 @@ func findMessage(message string, nowDirProtoc []parser.ProtocFileParser, allProt
 }
 
 func filterRequired(doc string) (string, bool) {
-	re := regexp.MustCompile("(?i)[//\\s]+@(tag)\\(\\\"binding\"([,\\s\\\"]+[^\\)]+)\\)")
-	arr := re.FindStringSubmatch(doc)
-	r := regexp.MustCompile("(?i)[,\\s\\\"]required[,\\s\\\"]")
-	if len(arr) == 3 && r.MatchString(arr[2]) {
-		doc = strings.Trim(re.ReplaceAllString(doc, ""), "\r\n")
-		return doc, true
+	arr := strings.Split(doc, "\n")
+	var newArr []string
+	var isRequired bool
+	re := regexp.MustCompile(`(?i)[/\s]*@tag\("binding"[,\s"]+([^"]+)"\)\s*`)
+	re2 := regexp.MustCompile(`(?i)required`)
+	for _, s := range arr {
+		match := re.FindStringSubmatch(s)
+		if len(match) == 2 && re2.MatchString(arr[1]) {
+			isRequired = true
+		} else {
+			newArr = append(newArr, s)
+		}
 	}
-	return doc, false
+	return strings.Join(newArr, "\n"), isRequired
+}
+
+// 仅支持string和number兼容两种写法 @example:xxx xxx 或 @example(xxx xxx)
+func filterExample(doc string, ty string) (string, interface{}) {
+	arr := strings.Split(doc, "\n")
+	var newArr []string
+	var example string
+	re := regexp.MustCompile(`(?i)\s*//\s*@example=(.*)`)
+	re2 := regexp.MustCompile(`(?i)[/\s]*@example\((.*)\)\s*`)
+	for _, s := range arr {
+		matches := re.FindStringSubmatch(s)
+		if len(matches) == 2 {
+			example = matches[1]
+		} else {
+			matches = re2.FindStringSubmatch(s)
+			if len(matches) == 2 {
+				example = matches[1]
+			} else {
+				newArr = append(newArr, s)
+			}
+		}
+	}
+	var result interface{}
+	if example != "" {
+		example = strings.Trim(strings.Trim(example, "\""), " ")
+		t := getProtoToSwagger(ty)
+		switch t {
+		case "string":
+			result = example
+		case "integer", "number":
+			result, _ = strconv.ParseFloat(example, 64)
+		case "boolean":
+			result, _ = strconv.ParseBool(example)
+		}
+	}
+	return strings.Join(newArr, "\n"), result
+}
+
+// 首行为默认说明，次行如：//@lang:zh xxx 中的 xxx 将替换默认说明
+func filterLanguage(doc string) string {
+	arr := strings.Split(doc, "\n")
+	if len(arr) < 2 {
+		return doc
+	}
+	var newArr []string
+	for i, s := range arr {
+		if i != 0 {
+			re := regexp.MustCompile(`(?i)\s*//\s*@lang=([a-z]+)\s*(.*)`)
+			match := re.FindStringSubmatch(s)
+			if len(match) == 3 {
+				if language == match[1] {
+					newArr[0] = match[2]
+				}
+				continue
+			}
+		}
+		newArr = append(newArr, s)
+	}
+	return strings.Join(newArr, "\n")
 }
 
 func filterTag(str string) string {
-	re := regexp.MustCompile("@(tag|Tag|TAG)\\(\\\"([a-zA-Z]+)\"[,\\s\\\"]+([^\"]+)\"\\)")
-	return strings.Trim(re.ReplaceAllString(str, ""), "\r\n")
+	arr := strings.Split(str, "\n")
+	var newArr []string
+	re := regexp.MustCompile(`(?i)\s*//\s*@tag\("([a-zA-Z]+)"[,\s"]+"([^"]+)"\)`)
+	for _, s := range arr {
+		if !re.MatchString(s) {
+			newArr = append(newArr, s)
+		}
+	}
+	return strings.Join(newArr, "\n")
+}
+
+func parseTag(str string) string {
+	arr := strings.Split(str, "\n")
+	var newArr []string
+	re := regexp.MustCompile(`(?i)\s*//\s*@tag\("([a-zA-Z]+)"[,\s"]+"([^"]+)"\)`)
+	for _, s := range arr {
+		match := re.FindStringSubmatch(s)
+		if len(match) == 3 {
+			newArr = append(newArr, "`"+match[1]+": "+match[2]+"`")
+		} else {
+			newArr = append(newArr, s)
+		}
+	}
+	return strings.Join(newArr, "  \n")
+}
+
+// 例：@query=id @lang=zh @format:string @example=abc 用户ID
+// format默认为int，如format是对象或枚举，即使本地引用，也必须要加上包名，如@format:api.UserStatus
+func parseParamInPath(option parser.Option) (params openapi.Parameters) {
+	re := regexp.MustCompile(`:([a-zA-Z_][a-zA-Z0-9_]*)`)
+	matches := re.FindAllStringSubmatch(option.Val, -1)
+	for _, match := range matches {
+		key := match[1]
+		var doc, example string
+		format := "int" //默认int（int非protobuf类型）
+		if option.Doc != "" {
+			var correctLang, lockDoc bool
+			for _, s := range strings.Split(option.Doc, "\n") {
+				r := regexp.MustCompile(`(?i)@([a-z_]*)=([a-z0-9_.]*)`)
+				ms := r.FindAllStringSubmatch(s, -1)
+				correctDoc := false
+				for _, m := range ms {
+					switch m[1] {
+					case "query":
+						if m[2] == key {
+							correctDoc = true
+						}
+					case "lang":
+						if m[2] == language {
+							correctLang = true
+						}
+					case "format":
+						if correctDoc {
+							format = m[2]
+						}
+					case "example":
+						if correctDoc {
+							example = m[2]
+						}
+					}
+				}
+				if correctDoc && !lockDoc {
+					doc = filterTag(strings.Trim(strings.Trim(r.ReplaceAllString(s, ""), "/"), " "))
+					if correctLang {
+						lockDoc = true
+					}
+				}
+			}
+		}
+		p := &openapi.Parameter{
+			Name:        key,
+			Description: doc,
+			Format:      format,
+			In:          "path",
+			Required:    true,
+			Type:        getProtoToSwagger(format),
+			Example:     example,
+		}
+		if p.Type == "object" {
+			p.Schema = &openapi.Schema{
+				Ref: "#/definitions/" + format,
+			}
+		}
+		params = append(params, p)
+	}
+	return
 }
