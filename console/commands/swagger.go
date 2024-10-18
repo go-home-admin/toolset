@@ -44,6 +44,11 @@ func (SwaggerCommand) Configure() command.Configure {
 					Description: "指定文档语言，如说明的下一行是‘// @lang:en name’则‘name’代替原说明",
 					Default:     "",
 				},
+				{
+					Name:        "host",
+					Description: "指定接口Host",
+					Default:     "",
+				},
 			},
 		},
 	}
@@ -55,6 +60,7 @@ func (SwaggerCommand) Execute(input command.Input) {
 	out := input.GetOption("out")
 	path := input.GetOption("path")
 	language = input.GetOption("lang")
+	host := input.GetOption("host")
 
 	swagger := openapi.Spec{
 		Swagger:  "2.0",
@@ -70,6 +76,16 @@ func (SwaggerCommand) Execute(input command.Input) {
 		Extensions:    nil,
 		GlobalOptions: nil,
 	}
+	if host != "" {
+		re := regexp.MustCompile(`^(https?)://(.+)`)
+		matches := re.FindStringSubmatch(host)
+		if matches != nil {
+			swagger.Schemes = []string{matches[1]}
+			swagger.Host = matches[2]
+		} else {
+			swagger.Host = host
+		}
+	}
 	if parser.DirIsExist(source) {
 		data, _ := os.ReadFile(source)
 		json.Unmarshal(data, &swagger)
@@ -77,14 +93,14 @@ func (SwaggerCommand) Execute(input command.Input) {
 
 	allProtoc := parser.NewProtocParserForDir(path)
 	for s, parsers := range allProtoc {
-		prefix := getPrefix(path, s)
+		pkg := getPackage(path, s)
 		for _, fileParser := range parsers {
 			for _, message := range fileParser.Messages {
-				name, parameter := messageToSchemas(prefix, message, &swagger)
+				name, parameter := messageToSchemas(pkg, message, &swagger)
 				swagger.Definitions[defName(name)] = parameter
 			}
 			for _, enum := range fileParser.Enums {
-				name, parameter := enumToMessage(prefix, enum)
+				name, parameter := enumToMessage(pkg, enum)
 				swagger.Definitions[defName(name)] = parameter
 			}
 
@@ -92,11 +108,22 @@ func (SwaggerCommand) Execute(input command.Input) {
 	}
 	// 全局定义后在生成url
 	for s, parsers := range allProtoc {
-		prefix := getPrefix(path, s)
+		pkg := getPackage(path, s)
 		for _, fileParser := range parsers {
 			for _, service := range fileParser.Services {
+				var prefix string
+				if routeGroup, ok := service.Opt["http.RouteGroup"]; ok {
+					prefix = "/$[" + routeGroup.Val + "]"
+					if routeGroup.Doc != "" {
+						re := regexp.MustCompile(`(?i)@prefix=(\w+)`)
+						match := re.FindStringSubmatch(routeGroup.Doc)
+						if match != nil {
+							prefix = "/" + match[1]
+						}
+					}
+				}
 				for _, rpc := range service.Rpc {
-					rpcToPath(prefix, rpc, &swagger, parsers, allProtoc, service.Opt)
+					rpcToPath(pkg, rpc, &swagger, parsers, allProtoc, prefix)
 				}
 			}
 		}
@@ -180,7 +207,7 @@ func isValidHTTPStatusCode(code int) bool {
 	return code >= 100 && code <= 599
 }
 
-func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser, serviceOpt map[string]parser.Option) {
+func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, nowDirProtoc []parser.ProtocFileParser, allProtoc map[string][]parser.ProtocFileParser, prefix string) {
 	service.Doc = filterLanguage(service.Doc)
 	for _, options := range service.Opt {
 		for _, option := range options {
@@ -188,8 +215,8 @@ func rpcToPath(pge string, service parser.ServiceRpc, swagger *openapi.Spec, now
 			if urlPath == "" {
 				urlPath = getUrl(service.Opt)
 			}
-			if routeGroup, ok := serviceOpt["http.RouteGroup"]; ok {
-				urlPath = "$[" + routeGroup.Val + "]" + urlPath
+			if prefix != "" {
+				urlPath = prefix + urlPath
 			}
 			var path = &openapi.Path{}
 			if o, ok := swagger.Paths[urlPath]; ok {
@@ -562,7 +589,7 @@ func getProtoToSwagger(t string) string {
 	return "object"
 }
 
-func getPrefix(path, s string) string {
+func getPackage(path, s string) string {
 	got := strings.ReplaceAll(s, path, "")
 	got = strings.Trim(got, "/")
 	got = strings.ReplaceAll(got, "/", ".")
@@ -635,12 +662,12 @@ func filterRequired(doc string) (string, bool) {
 	return strings.Join(newArr, "\n"), isRequired
 }
 
-// 仅支持string和number兼容两种写法 @example:xxx xxx 或 @example(xxx xxx)
+// 仅支持string和number兼容两种写法 @example=xxx 或 @example(xxx xxx)
 func filterExample(doc string, ty string) (string, interface{}) {
 	arr := strings.Split(doc, "\n")
 	var newArr []string
 	var example string
-	re := regexp.MustCompile(`(?i)\s*//\s*@example=(.*)`)
+	re := regexp.MustCompile(`(?i)\s*//\s*@example=(.*|\("*[^)]+"*)`)
 	re2 := regexp.MustCompile(`(?i)[/\s]*@example\((.*)\)\s*`)
 	for _, s := range arr {
 		matches := re.FindStringSubmatch(s)
@@ -671,7 +698,7 @@ func filterExample(doc string, ty string) (string, interface{}) {
 	return strings.Join(newArr, "\n"), result
 }
 
-// 首行为默认说明，次行如：//@lang:zh xxx 中的 xxx 将替换默认说明
+// 首行为默认说明，次行如：//@lang=zh xxx 中的 xxx 将替换默认说明
 func filterLanguage(doc string) string {
 	arr := strings.Split(doc, "\n")
 	if len(arr) < 2 {
@@ -721,8 +748,8 @@ func parseTag(str string) string {
 	return strings.Join(newArr, "  \n")
 }
 
-// 例：@query=id @lang=zh @format:string @example=abc 用户ID
-// format默认为int，如format是对象或枚举，即使本地引用，也必须要加上包名，如@format:api.UserStatus
+// 例：@query=id @lang=zh @format=string @example=abc 用户ID
+// format默认为int，如format是对象或枚举，即使本地引用，也必须要加上包名，如@format=api.UserStatus
 func parseParamInPath(option parser.Option) (params openapi.Parameters) {
 	re := regexp.MustCompile(`:([a-zA-Z_][a-zA-Z0-9_]*)`)
 	matches := re.FindAllStringSubmatch(option.Val, -1)
