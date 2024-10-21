@@ -10,7 +10,7 @@
 
 ### 2024-10-18 更新
 
-1. 在路由组声明上一行加上注释`@prefix=xxx`即可指定当前protobuf文件生成的swagger的接口前缀为`xxx`，该注释仅文档使用，应与业务代码一致）
+1. 在路由组声明上一行加上注释`@prefix=xxx`即可指定当前protobuf文件生成的swagger的接口前缀为`xxx`，该注释仅文档使用，应与业务代码一致
 ```
 // @prefix=api
 option (http.RouteGroup) = "api";

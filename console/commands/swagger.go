@@ -113,12 +113,15 @@ func (SwaggerCommand) Execute(input command.Input) {
 			for _, service := range fileParser.Services {
 				var prefix string
 				if routeGroup, ok := service.Opt["http.RouteGroup"]; ok {
-					prefix = "/$[" + routeGroup.Val + "]"
+					prefix = "$[" + routeGroup.Val + "]"
 					if routeGroup.Doc != "" {
-						re := regexp.MustCompile(`(?i)@prefix=(\w+)`)
+						re := regexp.MustCompile(`(?i)@prefix=(.*)`)
 						match := re.FindStringSubmatch(routeGroup.Doc)
 						if match != nil {
-							prefix = "/" + match[1]
+							prefix = match[1]
+							if !strings.HasPrefix(prefix, "/") {
+								prefix = "/" + prefix
+							}
 						}
 					}
 				}
@@ -334,6 +337,7 @@ func messageToParameters(message string, nowDirProtoc []parser.ProtocFileParser,
 	for _, option := range protocMessage.Attr {
 		doc, isRequired := filterRequired(option.Doc)
 		doc, example := filterExample(doc, option.Ty)
+		doc = filterLanguage(doc)
 		doc = getTitle(doc)
 		if option.Repeated {
 			if isProtoBaseType(option.Ty) {
@@ -652,8 +656,8 @@ func filterRequired(doc string) (string, bool) {
 	re := regexp.MustCompile(`(?i)[/\s]*@tag\("binding"[,\s"]+([^"]+)"\)\s*`)
 	re2 := regexp.MustCompile(`(?i)required`)
 	for _, s := range arr {
-		match := re.FindStringSubmatch(s)
-		if len(match) == 2 && re2.MatchString(arr[1]) {
+		matches := re.FindStringSubmatch(s)
+		if len(matches) == 2 && re2.MatchString(matches[1]) {
 			isRequired = true
 		} else {
 			newArr = append(newArr, s)
@@ -772,6 +776,8 @@ func parseParamInPath(option parser.Option) (params openapi.Parameters) {
 					case "lang":
 						if m[2] == language {
 							correctLang = true
+						} else {
+							correctDoc = false
 						}
 					case "format":
 						if correctDoc {
