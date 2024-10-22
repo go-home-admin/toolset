@@ -119,9 +119,6 @@ func (SwaggerCommand) Execute(input command.Input) {
 						match := re.FindStringSubmatch(routeGroup.Doc)
 						if match != nil {
 							prefix = match[1]
-							if !strings.HasPrefix(prefix, "/") {
-								prefix = "/" + prefix
-							}
 						}
 					}
 				}
