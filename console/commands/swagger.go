@@ -59,7 +59,7 @@ func (SwaggerCommand) Execute(input command.Input) {
 	source := input.GetOption("source")
 	out := input.GetOption("out")
 	path := input.GetOption("path")
-	language = input.GetOption("lang")
+	language = strings.ToLower(input.GetOption("lang"))
 	host := input.GetOption("host")
 
 	swagger := openapi.Spec{
@@ -711,7 +711,7 @@ func filterLanguage(doc string) string {
 			re := regexp.MustCompile(`(?i)\s*//\s*@lang=([a-z]+)\s*(.*)`)
 			match := re.FindStringSubmatch(s)
 			if len(match) == 3 {
-				if language == match[1] {
+				if language == strings.ToLower(match[1]) {
 					newArr[0] = match[2]
 				}
 				continue
@@ -771,7 +771,7 @@ func parseParamInPath(option parser.Option) (params openapi.Parameters) {
 							correctDoc = true
 						}
 					case "lang":
-						if m[2] == language {
+						if strings.ToLower(m[2]) == language {
 							correctLang = true
 						} else {
 							correctDoc = false
