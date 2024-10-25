@@ -423,7 +423,10 @@ func protoMessage(l []*word, offset int) (Message, int) {
 				attr = Attr{}
 			}
 		default:
-			attr.Doc += work.Str
+			// 备注内容必须在变量声明的上一行
+			if attr.Ty == "" {
+				attr.Doc += work.Str
+			}
 		}
 	}
 
