@@ -20,7 +20,7 @@ var goMethodStr = `package {package}
 
 import ({import})
 
-// {action}{doc}
+// {action} {doc}
 func (receiver *Controller) {action}(req *{paramAlias}.{param}, ctx http.Context) (*{returnAlias}.{return}, error) {
 	// TODO 这里写业务
 	return &{returnAlias}.{return}{}, nil

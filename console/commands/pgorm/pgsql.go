@@ -519,8 +519,12 @@ func PgTypeToGoType(pgType string, columnName string) string {
 		return "database.JSON"
 	case "time", "timetz":
 		return "database.Time"
-	case "numeric":
+	case "float4":
+		return "float32"
+	case "float8", "numeric":
 		return "float64"
+	case "bool":
+		return "bool"
 	case "bytea":
 		return "[]byte"
 	default:
