@@ -252,9 +252,6 @@ func getImports(infos map[string]orm.TableInfos, tableColumns map[string][]table
 
 func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships []*orm.Relationship) string {
 	TableName := parser.StringToHump(table)
-	if TableName == "Tests" {
-		fmt.Println("a")
-	}
 	config := services.NewConfig(conf)
 	deletedField := config.GetString("deleted_field")
 	hasField := make(map[string]bool)
