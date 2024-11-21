@@ -257,7 +257,8 @@ func getImports(infos map[string]TableInfos, tableColumns map[string][]tableColu
 
 func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships []*Relationship) string {
 	TableName := parser.StringToHump(table)
-
+	config := services.NewConfig(conf)
+	deletedField := config.GetString("deleted_field")
 	hasField := make(map[string]bool)
 	str := `type {TableName} struct {`
 	for _, column := range columns {
@@ -265,7 +266,7 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 		if *column.IS_NULLABLE == "YES" && !(column.COLUMN_NAME == "deleted_at" && column.GoType == "database.Time") {
 			p = "*"
 		}
-		if column.COLUMN_NAME == "deleted_at" && column.GoType == "database.Time" {
+		if column.GoType == "database.Time" && (column.COLUMN_NAME == deletedField || (deletedField == "" && column.COLUMN_NAME == "deleted_at")) {
 			column.GoType = "gorm.DeletedAt"
 		}
 
@@ -278,7 +279,7 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 
 		hasField[column.COLUMN_NAME] = true
 		fieldName := parser.StringToHump(column.COLUMN_NAME)
-		str += fmt.Sprintf("\n\t%v %v%v`%v json:\"%v\"` // %v", fieldName, p, column.GoType, genGormTag(column), column.COLUMN_NAME, strings.ReplaceAll(column.COLUMN_COMMENT, "\n", " "))
+		str += fmt.Sprintf("\n\t%v %v%v`%v json:\"%v\"` // %v", fieldName, p, column.GoType, genGormTag(column, conf), column.COLUMN_NAME, strings.ReplaceAll(column.COLUMN_COMMENT, "\n", " "))
 	}
 	// 表关系
 	if len(relationships) > 0 {
@@ -333,7 +334,7 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 	return "\n" + str + "\n"
 }
 
-func genGormTag(column tableColumn) string {
+func genGormTag(column tableColumn, conf Conf) string {
 	var arr []string
 	// 字段
 	arr = append(arr, "column:"+column.COLUMN_NAME)
@@ -368,6 +369,13 @@ func genGormTag(column tableColumn) string {
 	// default
 	if column.COLUMN_DEFAULT != nil {
 		arr = append(arr, "default:"+*column.COLUMN_DEFAULT)
+	}
+	// created_at & updated_at
+	if field, ok := conf["created_field"]; ok && field == column.ColumnName {
+		arr = append(arr, "autoCreateTime")
+	}
+	if field, ok := conf["updated_field"]; ok && field == column.ColumnName {
+		arr = append(arr, "autoUpdateTime")
 	}
 
 	if column.COLUMN_COMMENT != "" {

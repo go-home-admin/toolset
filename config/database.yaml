@@ -6,3 +6,8 @@ connections:
     database: env("DB_DATABASE")
     username: env("DB_USERNAME")
     password: env("DB_PASSWORD")
+    # If you need to specify maintenance time fields, declare the following settings.
+    # The following values are the default; if they are consistent, you do not need to declare them.
+    #created_field: created_at
+    #updated_field: updated_at
+    #deleted_field: deleted_at # The soft delete mechanism in Gorm.

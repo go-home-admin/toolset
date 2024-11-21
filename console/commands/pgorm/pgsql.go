@@ -252,7 +252,8 @@ func getImports(infos map[string]orm.TableInfos, tableColumns map[string][]table
 
 func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships []*orm.Relationship) string {
 	TableName := parser.StringToHump(table)
-
+	config := services.NewConfig(conf)
+	deletedField := config.GetString("deleted_field")
 	hasField := make(map[string]bool)
 	str := `type {TableName} struct {`
 	for _, column := range columns {
@@ -260,7 +261,7 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 		if column.IsNullable && !(column.ColumnName == "deleted_at" && column.GoType == "database.Time") && column.PgType != "bytea" {
 			p = "*"
 		}
-		if column.ColumnName == "deleted_at" && column.GoType == "database.Time" {
+		if column.GoType == "database.Time" && (column.ColumnName == deletedField || (deletedField == "" && column.ColumnName == "deleted_at")) {
 			column.GoType = "gorm.DeletedAt"
 		}
 
@@ -273,7 +274,7 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 
 		hasField[column.ColumnName] = true
 		fieldName := parser.StringToHump(column.ColumnName)
-		str += fmt.Sprintf("\n\t%v %v%v`%v` // %v", fieldName, p, column.GoType, genGormTag(column), strings.ReplaceAll(column.Comment, "\n", " "))
+		str += fmt.Sprintf("\n\t%v %v%v`%v` // %v", fieldName, p, column.GoType, genGormTag(column, conf), strings.ReplaceAll(column.Comment, "\n", " "))
 	}
 	// 表关系
 	if len(relationships) > 0 {
@@ -328,7 +329,7 @@ func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships 
 	return "\n" + str + "\n"
 }
 
-func genGormTag(column tableColumn) string {
+func genGormTag(column tableColumn, conf Conf) string {
 	var arr []string
 	// 字段
 	arr = append(arr, "column:"+column.ColumnName)
@@ -346,11 +347,14 @@ func genGormTag(column tableColumn) string {
 	} else if column.IndexName != "" {
 		arr = append(arr, "index:"+column.ColumnName)
 	}
-	// default
-	if column.ColumnDefault != "" {
-		arr = append(arr, "default:"+column.ColumnDefault)
+	// pgsql取消default声明, pgsql的default大多为函数，会影响数据更新，由pgsql自身处理
+	// created_at & updated_at
+	if field, ok := conf["created_field"]; ok && field == column.ColumnName {
+		arr = append(arr, "autoCreateTime")
 	}
-
+	if field, ok := conf["updated_field"]; ok && field == column.ColumnName {
+		arr = append(arr, "autoUpdateTime")
+	}
 	if column.Comment != "" {
 		arr = append(arr, fmt.Sprintf("comment:'%v'", strings.ReplaceAll(column.Comment, "'", "")))
 	}
@@ -529,11 +533,7 @@ func PgTypeToGoType(pgType string, columnName string) string {
 		return "[]byte"
 	default:
 		if strings.Contains(pgType, "timestamp") {
-			if columnName == "deleted_at" {
-				return "gorm.DeletedAt"
-			} else {
-				return "database.Time"
-			}
+			return "database.Time"
 		}
 		return "string"
 	}
