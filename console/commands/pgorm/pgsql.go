@@ -252,6 +252,9 @@ func getImports(infos map[string]orm.TableInfos, tableColumns map[string][]table
 
 func genOrmStruct(table string, columns []tableColumn, conf Conf, relationships []*orm.Relationship) string {
 	TableName := parser.StringToHump(table)
+	if TableName == "Tests" {
+		fmt.Println("a")
+	}
 	config := services.NewConfig(conf)
 	deletedField := config.GetString("deleted_field")
 	hasField := make(map[string]bool)
@@ -347,7 +350,10 @@ func genGormTag(column tableColumn, conf Conf) string {
 	} else if column.IndexName != "" {
 		arr = append(arr, "index:"+column.ColumnName)
 	}
-	// pgsql取消default声明, pgsql的default大多为函数，会影响数据更新，由pgsql自身处理
+	// default
+	if column.ColumnDefault != "" && !strings.Contains(column.ColumnDefault, "::") {
+		arr = append(arr, "default:"+column.ColumnDefault)
+	}
 	// created_at & updated_at
 	if field, ok := conf["created_field"]; ok && field == column.ColumnName {
 		arr = append(arr, "autoCreateTime")
