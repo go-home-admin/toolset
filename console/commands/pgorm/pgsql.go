@@ -348,8 +348,19 @@ func genGormTag(column tableColumn, conf Conf) string {
 		arr = append(arr, "index:"+column.ColumnName)
 	}
 	// default
-	if column.ColumnDefault != "" && !strings.Contains(column.ColumnDefault, "::") {
-		arr = append(arr, "default:"+column.ColumnDefault)
+	if column.ColumnDefault != "" {
+		if column.GoType == "string" {
+			if strings.Contains(column.ColumnDefault, "::character varying") {
+				str := strings.ReplaceAll(column.ColumnDefault, "::character varying", "")
+				if strings.ToUpper(str) != "NULL" {
+					arr = append(arr, "default:"+str)
+				}
+			} else if !strings.Contains(column.ColumnDefault, "::") {
+				arr = append(arr, "default:"+column.ColumnDefault)
+			}
+		} else {
+			arr = append(arr, "default:"+column.ColumnDefault)
+		}
 	}
 	// created_at & updated_at
 	if field, ok := conf["created_field"]; ok && field == column.ColumnName {
@@ -545,12 +556,13 @@ func PgTypeToGoType(pgType string, columnName string) string {
 func NewDb(conf map[interface{}]interface{}) *DB {
 	config := services.NewConfig(conf)
 	connStr := fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		config.GetString("username", "root"),
 		config.GetString("password", "123456"),
 		config.GetString("host", "localhost:"),
 		config.GetInt("port", 5432),
 		config.GetString("database", "demo"),
+		config.GetString("sslmode", "disable"),
 	)
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
