@@ -87,7 +87,7 @@ func genListFunc(table string, columns []tableColumn) string {
 	TableName := parser.StringToHump(table)
 	str := "\ntype " + TableName + "List []*" + TableName
 	for _, column := range columns {
-		if column.GoType == "[]byte" {
+		if column.GoType == "interface{}" {
 			continue
 		}
 		ColumnName := parser.StringToHump(column.ColumnName)
@@ -544,7 +544,7 @@ func PgTypeToGoType(pgType string, columnName string) string {
 	case "bool":
 		return "bool"
 	case "bytea":
-		return "[]byte"
+		return "interface{}"
 	default:
 		if strings.Contains(pgType, "timestamp") {
 			return "database.Time"
