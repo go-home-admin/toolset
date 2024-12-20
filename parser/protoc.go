@@ -516,7 +516,9 @@ func protoEnum(l []*word, offset int) (Enum, int) {
 				attr = Attr{}
 			}
 		default:
-			attr.Doc += work.Str
+			if attr.Name == "" {
+				attr.Doc += work.Str
+			}
 		}
 	}
 
