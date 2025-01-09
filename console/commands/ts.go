@@ -155,6 +155,7 @@ func (t *Ts) Execute(input command.Input) {
 				ref = strings.ReplaceAll(ref, ".", "_")
 				paramStr = "data: " + ref
 				hasParams = "\n    data,"
+				t.genType(method.e.RequestBody.Content.Json.Schema.Ref, true)
 			}
 			//URL参数
 			for _, urlParam := range urlQuery {
@@ -165,7 +166,7 @@ func (t *Ts) Execute(input command.Input) {
 			var response string
 			if _, ok := method.e.Responses["200"]; ok {
 				if method.e.Responses["200"].Schema != nil {
-					response = t.genType(method.e.Responses["200"].Schema.Ref)
+					response = t.genType(method.e.Responses["200"].Schema.Ref, false)
 				}
 			}
 			str += fmt.Sprintf(`
@@ -211,6 +212,9 @@ export const %v%v = (%v) => {
 func (t *Ts) genTsParams(typeName string, params []*openapi.Parameter) {
 	str := "export type " + typeName + " = {\n"
 	for _, parameter := range params {
+		if parameter.In == "path" {
+			continue
+		}
 		ty := t.getTsTypeFromParameter(parameter)
 		if !parameter.Required {
 			parameter.Name = parameter.Name + "?"
@@ -224,7 +228,7 @@ func (t *Ts) genTsParams(typeName string, params []*openapi.Parameter) {
 	t.params[typeName] = str
 }
 
-func (t *Ts) genType(ref string) string {
+func (t *Ts) genType(ref string, isRequest bool) string {
 	def := strings.Replace(ref, "#/definitions/", "", 1)
 	key := strings.ReplaceAll(def, ".", "_")
 	if _, ok := t.objects[key]; ok {
@@ -252,7 +256,16 @@ func (t *Ts) genType(ref string) string {
 					}
 				}
 			}
-			str += fmt.Sprintf("  %s: %s;\n", k, t.getTsTypeFromSchema(schema, ref))
+			isRequired := ""
+			if isRequest {
+				isRequired = "?"
+				for _, s := range t.swagger.Definitions[def].Required {
+					if k == s {
+						isRequired = ""
+					}
+				}
+			}
+			str += fmt.Sprintf("  %s%s: %s;\n", k, isRequired, t.getTsTypeFromSchema(schema, ref))
 		}
 		str += "}\n"
 		t.objects[key] = str
@@ -297,7 +310,7 @@ func (t *Ts) getTsTypeFromSchema(schema *openapi.Schema, ref string) string {
 			//结构引用自己，防止死循环
 			ty = strings.ReplaceAll(strings.Replace(ref, "#/definitions/", "", 1), ".", "_")
 		} else if _ref != "" {
-			ty = t.genType(_ref)
+			ty = t.genType(_ref, false)
 		}
 	}
 	return ty
