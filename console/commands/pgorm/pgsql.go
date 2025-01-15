@@ -10,6 +10,7 @@ import (
 	"github.com/go-home-admin/toolset/parser"
 	_ "github.com/lib/pq"
 	"log"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -557,8 +558,8 @@ func NewDb(conf map[interface{}]interface{}) *DB {
 	config := services.NewConfig(conf)
 	connStr := fmt.Sprintf(
 		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		config.GetString("username", "root"),
-		config.GetString("password", "123456"),
+		url.QueryEscape(config.GetString("username", "root")),
+		url.QueryEscape(config.GetString("password", "123456")),
 		config.GetString("host", "localhost:"),
 		config.GetInt("port", 5432),
 		config.GetString("database", "demo"),
