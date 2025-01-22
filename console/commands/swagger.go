@@ -49,6 +49,11 @@ func (SwaggerCommand) Configure() command.Configure {
 					Description: "指定接口Host",
 					Default:     "",
 				},
+				{
+					Name:        "tags",
+					Description: "只输出指定Tag的文档，多个用,隔开",
+					Default:     "",
+				},
 			},
 		},
 	}
@@ -61,6 +66,7 @@ func (SwaggerCommand) Execute(input command.Input) {
 	path := input.GetOption("path")
 	language = strings.ToLower(input.GetOption("lang"))
 	host := input.GetOption("host")
+	tags := strings.Split(input.GetOption("tags"), ",")
 
 	swagger := openapi.Spec{
 		Swagger:  "2.0",
@@ -94,6 +100,9 @@ func (SwaggerCommand) Execute(input command.Input) {
 	allProtoc := parser.NewProtocParserForDir(path)
 	for s, parsers := range allProtoc {
 		pkg := getPackage(path, s)
+		if !checkTags(pkg, tags) {
+			continue
+		}
 		for _, fileParser := range parsers {
 			for _, message := range fileParser.Messages {
 				name, parameter := messageToSchemas(pkg, message, &swagger)
@@ -109,6 +118,9 @@ func (SwaggerCommand) Execute(input command.Input) {
 	// 全局定义后在生成url
 	for s, parsers := range allProtoc {
 		pkg := getPackage(path, s)
+		if !checkTags(pkg, tags) {
+			continue
+		}
 		for _, fileParser := range parsers {
 			for _, service := range fileParser.Services {
 				var prefix string
@@ -811,4 +823,16 @@ func parseParamInPath(option parser.Option) (params openapi.Parameters) {
 		params = append(params, p)
 	}
 	return
+}
+
+func checkTags(pkg string, tags []string) bool {
+	if len(tags) == 0 || tags[0] == "" {
+		return true
+	}
+	for _, t := range tags {
+		if strings.Index(pkg, t) == 0 {
+			return true
+		}
+	}
+	return false
 }
