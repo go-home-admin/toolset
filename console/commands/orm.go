@@ -33,6 +33,11 @@ func (OrmCommand) Configure() command.Configure {
 					Description: "输出文件",
 					Default:     "@root/app/entity",
 				},
+				{
+					Name:        "schema",
+					Description: "specified schema, only works in PostgreSql",
+					Default:     "public",
+				},
 			},
 		},
 	}
@@ -44,6 +49,7 @@ func (OrmCommand) Execute(input command.Input) {
 	file = strings.Replace(file, "@root", root, 1)
 	outBase := input.GetOption("out")
 	outBase = strings.Replace(outBase, "@root", root, 1)
+	schema := input.GetOption("schema")
 
 	err := godotenv.Load(root + "/.env")
 	if err != nil {
@@ -66,7 +72,7 @@ func (OrmCommand) Execute(input command.Input) {
 		case "mysql":
 			orm.GenMysql(s.(string), conf, out)
 		case "postgresql":
-			pgorm.GenSql(s.(string), conf, out)
+			pgorm.GenSql(s.(string), conf, out, schema)
 		}
 
 		cmd := exec.Command("go", []string{"fmt", out}...)
