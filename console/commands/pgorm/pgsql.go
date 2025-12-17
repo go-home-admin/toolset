@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -360,19 +361,55 @@ func genGormTag(column tableColumn, conf Conf) string {
 	} else if column.IndexName != "" {
 		arr = append(arr, "index:"+column.ColumnName)
 	}
+	// generated (stored) column: mark as read-only and do not add default
+	if column.GenerationExpression != "" {
+		arr = append(arr, "->")
+	}
 	// default
-	if column.ColumnDefault != "" {
-		if column.GoType == "string" {
-			if strings.Contains(column.ColumnDefault, "::character varying") {
-				str := strings.ReplaceAll(column.ColumnDefault, "::character varying", "")
-				if strings.ToUpper(str) != "NULL" {
-					arr = append(arr, "default:"+str)
-				}
-			} else if !strings.Contains(column.ColumnDefault, "::") {
-				arr = append(arr, "default:"+column.ColumnDefault)
-			}
+	if column.ColumnDefault != "" && column.GenerationExpression == "" {
+		// If it's a sequence or function (e.g. nextval(...)) we already mark autoIncrement or it's a runtime function —don't add a literal default
+		orig := column.ColumnDefault
+		if strings.Contains(strings.ToLower(orig), "nextval") {
+			// skip adding default tag for sequence
 		} else {
-			arr = append(arr, "default:"+column.ColumnDefault)
+			// Normalize defaults that include PostgreSQL cast syntax, e.g. '-1.0'::numeric or '1 year'::interval
+			def := orig
+			// remove any ::cast occurrences (keep the expression around them)
+			re := regexp.MustCompile(`::[^\s\)]+`)
+			def = re.ReplaceAllString(def, "")
+
+			// Remove surrounding parentheses if the whole expression is wrapped (e.g. (now() - '1 year'))
+			def = strings.TrimSpace(def)
+			if len(def) >= 2 && def[0] == '(' && def[len(def)-1] == ')' {
+				def = strings.TrimSpace(def[1 : len(def)-1])
+			}
+
+			// Handle string defaults separately (keep quotes so GORM tag includes them)
+			if column.GoType == "string" {
+				if strings.ToUpper(def) != "NULL" {
+					arr = append(arr, "default:"+def)
+				}
+			} else {
+				// For non-string types remove surrounding single quotes if present
+				s := strings.TrimSpace(def)
+				if len(s) >= 2 && s[0] == '\'' && s[len(s)-1] == '\'' {
+					s = s[1 : len(s)-1]
+				}
+				// Decide whether to keep the default: skip sequences, but allow time expressions like now() - '1 year'
+				sTrim := strings.TrimSpace(s)
+				sLower := strings.ToLower(sTrim)
+				if strings.ToUpper(sTrim) != "NULL" {
+					if strings.Contains(sLower, "nextval") {
+						// skip sequence defaults
+					} else if strings.Contains(sLower, "now") || strings.Contains(sLower, "current_timestamp") || strings.Contains(sLower, "interval") {
+						// allow time expressions (e.g. now() - '1 year')
+						arr = append(arr, "default:"+sTrim)
+					} else if !strings.ContainsAny(sTrim, "()") {
+						// simple literal (no function calls)
+						arr = append(arr, "default:"+sTrim)
+					}
+				}
+			}
 		}
 	}
 	// created_at & updated_at
@@ -420,14 +457,14 @@ func (d *DB) tableColumns(schema string) TableInfo {
 			&tableName,
 		)
 		_rows, _ := d.db.Query(fmt.Sprintf(`
-SELECT i.column_name, i.column_default, i.is_nullable, i.udt_name, col_description(a.attrelid,a.attnum) as comment, ixc.relname
+SELECT i.column_name, i.column_default, i.is_nullable, i.udt_name, col_description(a.attrelid,a.attnum) as comment, ixc.relname, i.generation_expression
 FROM information_schema.columns as i 
 LEFT JOIN pg_class as c on c.relname = i.table_name
 LEFT JOIN pg_attribute as a on a.attrelid = c.oid and a.attname = i.column_name
 LEFT JOIN pg_index ix ON c.oid = ix.indrelid AND a.attnum = ANY(ix.indkey)
 LEFT JOIN pg_class ixc ON ixc.oid = ix.indexrelid
 WHERE table_schema = '%s' and i.table_name = '%s';
-		`, schema, tableName))
+			`, schema, tableName))
 		defer _rows.Close()
 		//获取主键
 		__rows, _ := d.db.Query(`
@@ -452,8 +489,9 @@ WHERE pg_class.relname = $1 AND pg_constraint.contype = 'p'
 				udt_name       string
 				comment        *string
 				index_name     *string
+				gen_expr       *string
 			)
-			err = _rows.Scan(&column_name, &column_default, &is_nullable, &udt_name, &comment, &index_name)
+			err = _rows.Scan(&column_name, &column_default, &is_nullable, &udt_name, &comment, &index_name, &gen_expr)
 			if err != nil {
 				panic(err)
 			}
@@ -462,27 +500,40 @@ WHERE pg_class.relname = $1 AND pg_constraint.contype = 'p'
 			} else {
 				repeatName[column_name] = 1
 			}
-			var columnComment, indexName string
+			var columnComment, indexName, generationExpression string
 			if comment != nil {
 				columnComment = *comment
 			}
 			if index_name != nil {
 				indexName = *index_name
 			}
+			if gen_expr != nil {
+				generationExpression = *gen_expr
+			}
 			var ColumnDefault string
 			if column_default != nil {
 				ColumnDefault = *column_default
 			}
 
+			// If column is a generated stored column, append its generation expr to comment so it's visible
+			if generationExpression != "" {
+				if columnComment != "" {
+					columnComment = columnComment + " [generated:" + generationExpression + "]"
+				} else {
+					columnComment = "[generated:" + generationExpression + "]"
+				}
+			}
+
 			ormColumns[tableName] = append(ormColumns[tableName], tableColumn{
-				ColumnName:    column_name,
-				ColumnDefault: ColumnDefault,
-				PgType:        udt_name,
-				GoType:        PgTypeToGoType(udt_name, column_name),
-				IsNullable:    is_nullable == "YES",
-				IsPKey:        column_name == pkey,
-				Comment:       columnComment,
-				IndexName:     indexName,
+				ColumnName:           column_name,
+				ColumnDefault:        ColumnDefault,
+				PgType:               udt_name,
+				GoType:               PgTypeToGoType(udt_name, column_name),
+				IsNullable:           is_nullable == "YES",
+				IsPKey:               column_name == pkey,
+				Comment:              columnComment,
+				IndexName:            indexName,
+				GenerationExpression: generationExpression,
 			})
 		}
 	}
@@ -528,14 +579,15 @@ type TableInfo struct {
 
 type tableColumn struct {
 	// 驼峰命名的字段
-	ColumnName    string
-	ColumnDefault string
-	PgType        string
-	GoType        string
-	IsNullable    bool
-	IsPKey        bool
-	Comment       string
-	IndexName     string
+	ColumnName           string
+	ColumnDefault        string
+	PgType               string
+	GoType               string
+	IsNullable           bool
+	IsPKey               bool
+	Comment              string
+	IndexName            string
+	GenerationExpression string
 }
 
 func PgTypeToGoType(pgType string, columnName string) string {
