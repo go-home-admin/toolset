@@ -374,9 +374,15 @@ func genGormTag(column tableColumn, conf Conf) string {
 		} else {
 			// Normalize defaults that include PostgreSQL cast syntax, e.g. '-1.0'::numeric or '1 year'::interval
 			def := orig
-			// remove any ::cast occurrences (keep the expression around them)
-			re := regexp.MustCompile(`::[^\s\)]+`)
-			def = re.ReplaceAllString(def, "")
+			// remove any ::cast occurrences (keep the expression around them). Previous regex only removed up to the first space
+			// which left leftover words like "varying". Use a case-insensitive regex that accepts quoted identifiers and
+			// multi-word type names (e.g. "character varying").
+			reCast := regexp.MustCompile(`(?i)::[A-Za-z0-9_".]+(?:\s+[A-Za-z0-9_".]+)*`)
+			def = reCast.ReplaceAllString(def, "")
+
+			// remove COLLATE clauses like: COLLATE "pg_catalog"."default"
+			reCollate := regexp.MustCompile(`(?i)collate\s+"[^"]+"(?:\."[^"]+")?`)
+			def = reCollate.ReplaceAllString(def, "")
 
 			// Remove surrounding parentheses if the whole expression is wrapped (e.g. (now() - '1 year'))
 			def = strings.TrimSpace(def)
