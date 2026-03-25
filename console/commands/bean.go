@@ -1,13 +1,15 @@
 package commands
 
 import (
-	"github.com/ctfang/command"
-	"github.com/go-home-admin/toolset/parser"
+	"fmt"
 	"log"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/ctfang/command"
+	"github.com/go-home-admin/toolset/parser"
 )
 
 // BeanCommand @Bean
@@ -228,7 +230,7 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 	if !k.InPackage {
 		a := m[k.TypeImport]
 		if a == "" {
-			panic("识别到不明确的import, 最后一个目录和package名称不一致时，需要手动， 例如\nredis \"github.com/go-redis/redis/v8\"")
+			fmt.Println("生成注入配置错误:\n1. 可能是配置的注入方式只支持字符串限制。\n2.也可能识别到不明确的import, 最后一个目录和package名称不一致时，需要手动， 例如:redis \"github.com/go-redis/redis/v8\"")
 		} else {
 			alias = a + "."
 		}
