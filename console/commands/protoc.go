@@ -50,22 +50,43 @@ func (ProtocCommand) Configure() command.Configure {
 
 var show = false
 
+// ctfang/command 对 "--foo=" 解析出的键为 "-foo"，与 Configure 里 Name 不一致时在此合并
+func optionBoolTrue(input command.Input, name string) bool {
+	if input.GetOption(name) == "true" {
+		return true
+	}
+	return input.GetOption("-"+name) == "true"
+}
+
+func absPath(p string) string {
+	a, err := filepath.Abs(filepath.Clean(p))
+	if err != nil {
+		return filepath.Clean(p)
+	}
+	return a
+}
+
+func protoPathArg(dir string) string {
+	return "--proto_path=" + absPath(dir)
+}
+
 func (ProtocCommand) Execute(input command.Input) {
-	show = input.GetOption("debug") == "true"
-	root := getRootPath()
+	// -debug=true / --debug=true：仅打印最终 protoc 命令（PrintCmd）
+	show = optionBoolTrue(input, "debug")
+	root := absPath(getRootPath())
 
 	var outTemp, outPath string
 	out := input.GetOption("go_out")
 	out = strings.Replace(out, "@root", root, 1)
 	if outIndex := strings.Index(out, ":"); outIndex != -1 && string(out[outIndex+1]) != "\\" {
 		outPath = out[outIndex+1:]
-		outPath, _ = filepath.Abs(outPath + "/../temp")
+		outPath = absPath(filepath.Join(outPath, "..", "temp"))
 		_ = os.RemoveAll(outPath)
 		_ = os.MkdirAll(outPath, 0766)
 		outTemp = out[:outIndex+1] + outPath
 		out = out[outIndex+1:]
 	} else {
-		outTemp, _ = filepath.Abs(out + "/../temp")
+		outTemp = absPath(filepath.Join(filepath.Dir(out), "temp"))
 		_ = os.RemoveAll(outTemp)
 		_ = os.MkdirAll(outTemp, 0766)
 		outPath = outTemp
@@ -73,17 +94,30 @@ func (ProtocCommand) Execute(input command.Input) {
 
 	path := input.GetOption("proto")
 	path = strings.Replace(path, "@root", root, 1)
+	path = absPath(path)
+	out = absPath(out)
+	outPath = absPath(outPath)
+	outTemp = absPath(outTemp)
 
 	pps := make([]string, 0)
-	for _, s := range input.GetOptions("proto_path") {
+	// 自动加入 protoc 安装目录下的 include，使 google/protobuf 等 well-known 优先于仓库内 node_modules 等误匹配
+	if inc := protocBuiltinIncludeDir(root); inc != "" {
+		inc = absPath(inc)
+		pps = append(pps, protoPathArg(inc))
+		for _, dir := range parser.GetChildrenDir(inc) {
+			pps = append(pps, protoPathArg(dir.Path))
+		}
+	}
+	// ctfang/command 对 "--proto_path=" 解析出的键为 "-proto_path"，与 Name 不一致时需合并
+	protoPaths := append(append([]string(nil), input.GetOptions("proto_path")...), input.GetOptions("-proto_path")...)
+	for _, s := range protoPaths {
 		if s == "" {
 			continue
 		}
-		s = strings.Replace(s, "@root", root, 1)
-		pps = append(pps, "--proto_path="+s)
-		// 子目录也加入进来
+		s = absPath(strings.Replace(s, "@root", root, 1))
+		pps = append(pps, protoPathArg(s))
 		for _, dir := range parser.GetChildrenDir(s) {
-			pps = append(pps, "--proto_path="+dir.Path)
+			pps = append(pps, protoPathArg(dir.Path))
 		}
 	}
 	// path/*.proto 不是protoc命令提供的, 如果这里执行需要每一个文件一个命令
@@ -96,15 +130,15 @@ func (ProtocCommand) Execute(input command.Input) {
 				for _, imts := range gof.Imports {
 					imts = scanFileDir(root, imts)
 					if imts != "" {
-						ppps = append(ppps, "--proto_path="+imts)
+						ppps = append(ppps, protoPathArg(imts))
 					}
 				}
 			}
 
-			cods := []string{"--proto_path=" + dir.Path}
+			cods := []string{protoPathArg(dir.Path)}
 			cods = append(cods, ppps...)
 			cods = append(cods, "--go_out="+outTemp)
-			cods = append(cods, info.Path)
+			cods = append(cods, absPath(info.Path))
 
 			ProtocCmd(cods)
 		}
@@ -112,12 +146,12 @@ func (ProtocCommand) Execute(input command.Input) {
 
 	// 生成后, 从temp目录拷贝到out
 	_ = os.RemoveAll(out)
-	rootAlias := strings.Replace(out, root+"/", "", 1)
-	module := getModModule()
+	rootAlias := filepath.ToSlash(pathTrimPrefixDir(out, root))
+	module := filepath.ToSlash(getModModule())
 
 	for _, dir := range parser.GetChildrenDir(outPath) {
-		dir2 := strings.Replace(dir.Path, outPath+"/", "", 1)
-		dir3 := strings.Replace(dir2, module+"/", "", 1)
+		dir2 := filepath.ToSlash(pathTrimPrefixDir(dir.Path, outPath))
+		dir3 := strings.TrimPrefix(dir2, module+"/")
 		if dir2 == dir3 {
 			continue
 		}
@@ -133,14 +167,81 @@ func (ProtocCommand) Execute(input command.Input) {
 	genProtoTag(out)
 }
 
+// pathTrimPrefixDir 从 full 中去掉 prefix 目录前缀（Windows / Unix 路径均兼容）
+func pathTrimPrefixDir(full, prefix string) string {
+	f := absPath(full)
+	p := absPath(prefix)
+	if f == p {
+		return "."
+	}
+	rel, err := filepath.Rel(p, f)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		s := strings.TrimPrefix(f, p)
+		s = strings.TrimPrefix(s, string(filepath.Separator))
+		s = strings.TrimPrefix(s, "/")
+		return s
+	}
+	return rel
+}
+
+// resolveProtocExecutable 与 ProtocCmd 一致：优先项目 bin 下自带 protoc，否则 PATH 中的 protoc
+func resolveProtocExecutable(root string) string {
+	var rel string
+	switch runtime.GOOS {
+	case "darwin":
+		rel = filepath.Join("bin", "protoc-mac")
+	case "windows":
+		rel = filepath.Join("bin", "protoc-win.exe")
+	default:
+		rel = filepath.Join("bin", "protoc-linux")
+	}
+	bundled := absPath(filepath.Join(root, rel))
+	if st, err := os.Stat(bundled); err == nil && !st.IsDir() {
+		return bundled
+	}
+	if p, err := exec.LookPath("protoc"); err == nil {
+		return absPath(p)
+	}
+	return ""
+}
+
+// protocBuiltinIncludeDir 返回与将调用的 protoc 同级的 include（含 google/protobuf/descriptor.proto）
+func protocBuiltinIncludeDir(root string) string {
+	p := resolveProtocExecutable(root)
+	if p == "" {
+		return ""
+	}
+	if p2, err := filepath.EvalSymlinks(p); err == nil {
+		p = p2
+	}
+	if p2, err := filepath.Abs(p); err == nil {
+		p = p2
+	}
+	inc := filepath.Join(filepath.Dir(filepath.Dir(p)), "include")
+	desc := filepath.Join(inc, filepath.FromSlash("google/protobuf/descriptor.proto"))
+	if st, err := os.Stat(desc); err != nil || st.IsDir() {
+		return ""
+	}
+	return inc
+}
+
+func skipImportSearchPath(dirPath string) bool {
+	n := strings.ToLower(strings.ReplaceAll(dirPath, "\\", "/"))
+	return strings.Contains(n, "/node_modules/") || strings.HasSuffix(n, "/node_modules") ||
+		strings.Contains(n, "/vendor/") || strings.HasSuffix(n, "/vendor")
+}
+
 func scanFileDir(root, file string) string {
-	imts := root + "/" + file
+	imts := filepath.Join(root, filepath.FromSlash(file))
 	if _, err := os.Stat(imts); !os.IsNotExist(err) {
 		return root
 	}
 
 	for _, dir := range parser.GetChildrenDir(root) {
-		imts = dir.Path + "/" + file
+		if skipImportSearchPath(dir.Path) {
+			continue
+		}
+		imts = filepath.Join(dir.Path, filepath.FromSlash(file))
 		if _, err := os.Stat(imts); !os.IsNotExist(err) {
 			return dir.Path
 		}
@@ -311,22 +412,11 @@ func getDocTag(doc string) ([]tag, map[string]tag) {
 }
 
 func ProtocCmd(params []string) {
-	var commandName string
-	root := getRootPath()
-	switch runtime.GOOS {
-	case "darwin":
-		commandName = root + "/bin/protoc-mac"
-	case "windows":
-		commandName = root + "/bin/protoc-win.exe"
-	default:
-		commandName = root + "/bin/protoc-linux"
-	}
-
-	_, err := exec.LookPath(commandName)
-	if err != nil {
+	root := absPath(getRootPath())
+	commandName := resolveProtocExecutable(root)
+	if commandName == "" {
 		commandName = "protoc"
-		_, err = exec.LookPath("protoc")
-		if err != nil {
+		if _, err := exec.LookPath("protoc"); err != nil {
 			log.Println("'protoc' 未安装; https://github.com/protocolbuffers/protobuf/releases")
 			return
 		}
@@ -341,8 +431,7 @@ func ProtocCmd(params []string) {
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		log.Fatalln(err)
 	}
 }
