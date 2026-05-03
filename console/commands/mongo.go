@@ -41,7 +41,11 @@ func (MongoCommand) Configure() command.Configure {
 
 func (MongoCommand) Execute(input command.Input) {
 	root := getRootPath()
-	file := input.GetArgument("proto_file")
+	file := strings.TrimSpace(input.GetArgument("proto_file"))
+	if file == "" {
+		fmt.Println("缺少必须参数 proto_file：请指定数据库 proto 路径，例如 toolset make:mongo protobuf/db.proto")
+		return
+	}
 	if file[0:1] != "/" && file[0:1] != "@" {
 		file = "@root" + "/" + file
 	}

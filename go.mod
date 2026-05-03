@@ -11,8 +11,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-require (
-	github.com/go-redis/redis/v8 v8.11.5 // indirect
-	github.com/ugorji/go v1.2.7 // indirect
-	gorm.io/driver/mysql v1.3.4 // indirect
-)
+require gorm.io/driver/mysql v1.3.4 // indirect
+
+replace github.com/ctfang/command => ../../ctfang/command

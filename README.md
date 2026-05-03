@@ -34,6 +34,10 @@ Available commands:
   make:swagger  生成文档
 ````
 
+## 源码与本机构建
+
+[`go.mod`](go.mod) 中为 `github.com/ctfang/command` 配置了 `replace`，默认指向与本仓库同属 `github.com` 上一级目录下的 `ctfang/command`（即 `../../ctfang/command`，需自行 clone）。若克隆路径不同，请修改该项；上游发布包含位置参数修正的版本后也可改为仅用 `require` 版本。
+
 ## 生成ORM
 ````yaml
 # ./config/database.yaml
@@ -84,12 +88,12 @@ Usage:
   make:bean
     -name                = New{name}
     -scan                = @root
-    -skip                = @root/generate
+    -skip                = @root/generate,@root/vendor
 Arguments:
 Option:
   -name                  New函数别名, 如果兼容旧的项目可以设置
   -scan                  扫码目录下的源码; shell(pwd)
-  -skip                  跳过目录
+  -skip                  跳过目录；默认两处目录，支持逗号或多次传入
   -debug                 是否显示明细
   -root                  获取项目跟路径, 默认当前目录
   -h                     显示帮助信息

@@ -39,13 +39,8 @@ func (BeanCommand) Configure() command.Configure {
 				},
 				{
 					Name:        "skip",
-					Description: "跳过目录",
-					Default:     "@root/generate",
-				},
-				{
-					Name:        "skip",
-					Description: "跳过目录",
-					Default:     "@root/vendor",
+					Description: "跳过目录；默认 @root/generate 与 @root/vendor。可 `-skip=` 重复传入，或使用逗号在一项内分隔多路径",
+					Default:     "@root/generate,@root/vendor",
 				},
 			},
 		},
@@ -62,9 +57,15 @@ func (BeanCommand) Execute(input command.Input) {
 	scan = strings.Replace(scan, "@root", root, 1)
 
 	skip := make(map[string]bool)
-	for _, s := range input.GetOptions("skip") {
-		s = strings.Replace(s, "@root", root, 1)
-		skip[s] = true
+	for _, raw := range input.GetOptions("skip") {
+		for _, s := range strings.Split(raw, ",") {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				continue
+			}
+			s = strings.Replace(s, "@root", root, 1)
+			skip[s] = true
+		}
 	}
 
 	fileList := parser.NewAst(scan, skip)
@@ -223,6 +224,41 @@ func genProvider(bc beanCache, m map[string]string) string {
 	return str
 }
 
+// ifaceAssertParenBody 生成 iface.(Here) 中 Here 的类型字面量片段（不含括号）。
+// 约定：运行时 GetBean / 断言得到的动态类型必须与字段赋值 RHS 的类型一致；
+// - 值为 T 时 RHS 仍为 *T（外层会 *），故断言到 *T；
+// - 字段类型本身已带指针（*T / **T 等）时，断言与该完整类型字面量一致并保留前缀 * 的个数，同时重写 import 别名。
+func ifaceAssertParenBody(attr parser.GoTypeAttr, m map[string]string) string {
+	typeRemainder := attr.TypeName
+	stars := ""
+	for strings.HasPrefix(typeRemainder, "*") {
+		stars += "*"
+		typeRemainder = typeRemainder[len("*"):]
+	}
+
+	var qualifiedRest string // 无前导星号，可能含本包多级名（尽量不破坏）
+	if attr.InPackage {
+		qualifiedRest = typeRemainder
+	} else {
+		importAlias := m[attr.TypeImport]
+		if importAlias == "" {
+			importAlias = attr.TypeAlias
+		}
+		sel := typeRemainder
+		if ix := strings.LastIndexByte(sel, '.'); ix >= 0 && ix+1 < len(sel) {
+			sel = sel[ix+1:]
+		}
+		qualifiedRest = importAlias + "." + sel
+	}
+
+	fullCanon := stars + qualifiedRest // 重写别名后的字段类型本体（无前导 unary 前缀歧义）
+
+	if attr.IsPointer() {
+		return fullCanon
+	}
+	return "*" + fullCanon
+}
+
 func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 	alias := ""
 	name := k.TypeName
@@ -230,7 +266,7 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 	if !k.InPackage {
 		a := m[k.TypeImport]
 		if a == "" {
-			fmt.Println("生成注入配置错误:\n1. 可能是配置的注入方式只支持字符串限制。\n2.也可能识别到不明确的import, 最后一个目录和package名称不一致时，需要手动， 例如:redis \"github.com/go-redis/redis/v8\"")
+			fmt.Println("生成注入配置错误:\n可能是识别到不明确的 import（例如别名与默认 package 推断冲突），请参考例如: redis \"github.com/go-redis/redis/v8\" 显式写清")
 		} else {
 			alias = a + "."
 		}
@@ -257,16 +293,17 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 
 		got := providers + "GetBean(\"" + beanAlias + "\").(" + providers + "Bean)"
 		if strings.Index(beanValue, "@") != -1 {
-			// 嵌套时, inject: "@config("app.name")"
-			// 只支持字符串嵌套注入
-
+			// 嵌套 inject: "... , @config(...)" 内层从 config Bean 取出的必须是 *string，
+			// 经 unary * 得到 string，再作为外层 Bean.GetBean(键) 的第一个参数（键由配置内容动态给出）。
+			// 字段类型 ifaceAssertParenBody 仅用于最外层对目标 Bean 返回值的断言。
 			startTemp := strings.Index(beanValue, "(")
 			beanValueNextName := beanValue[1:startTemp]
 			if beanValue[len(beanValue)-1:] != ")" {
 				beanValue = beanValue + ", " + tag.Get(2)
 			}
 			beanValueNextVal := strings.Trim(beanValue[startTemp+1:], ")")
-			got = got + ".GetBean(*" + providers + "GetBean(\"" + beanValueNextName + "\").(" + providers + "Bean).GetBean(\"" + beanValueNextVal + "\").(*string))"
+			const nestedKeyRelayBody = "*string"
+			got = got + ".GetBean(*" + providers + "GetBean(\"" + beanValueNextName + "\").(" + providers + "Bean).GetBean(\"" + beanValueNextVal + "\").(" + nestedKeyRelayBody + "))"
 		} else if tag.Count() <= 2 {
 			// 如果没有默认值
 			if beanValue == "" {
@@ -295,7 +332,7 @@ func getInitializeNewFunName(k parser.GoTypeAttr, m map[string]string) string {
 		}
 		// 如果被注入的是接口时, 这里的*是多余的, 还不支持注入到 type interface 的变量
 		// 如果有需要, 自行复制z_inject_gen.go内代码, 把开头*和类型*删除，就兼容了
-		return got + ".(*" + alias + name + ")"
+		return got + ".(" + ifaceAssertParenBody(k, m) + ")"
 	}
 }
 
@@ -315,6 +352,7 @@ func genImportAlias(m map[string]string) map[string]string {
 	for iname, imp := range m {
 		if iname != imp {
 			if aliasMapImport[iname] != "" && aliasMapImport[iname] != imp {
+				// 同一源码显示名映射到两条 import 路径时的后备 key（多见于 route 等生成场景）
 				aliasMapImport[iname+"_2"] = imp
 			} else {
 				aliasMapImport[iname] = imp

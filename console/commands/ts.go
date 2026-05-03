@@ -7,6 +7,7 @@ import (
 	"github.com/go-home-admin/toolset/console/commands/openapi"
 	"github.com/go-home-admin/toolset/parser"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -70,8 +71,16 @@ func (t *Ts) Execute(input command.Input) {
 	inSwaggerStr := ""
 	if strings.Index(in, "http") == 0 {
 		// 远程获取文件
-		req, _ := http.NewRequest("GET", in, nil)
-		res, _ := http.DefaultClient.Do(req)
+		req, err := http.NewRequest("GET", in, nil)
+		if err != nil {
+			log.Printf("make:ts request: %v", err)
+			return
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("make:ts http: %v", err)
+			return
+		}
 		defer res.Body.Close()
 		//得到返回结果
 		body, _ := io.ReadAll(res.Body)

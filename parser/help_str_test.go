@@ -1,12 +1,11 @@
 package parser
 
 import (
-	"fmt"
 	"testing"
 )
 
 func TestIsIdentifier(t *testing.T) {
-	fmt.Println('_')
+	_ = IsIdentifier('_')
 }
 
 func TestGetBrackets(t *testing.T) {
@@ -37,6 +36,7 @@ func TestGetBrackets(t *testing.T) {
 }
 
 func TestLastIsIdentifier(t *testing.T) {
+	// 行末为 `)` 且此前 `(` 与参数已闭合，不应再视为「仍停在 ( 处」的场景
 	l := []*word{
 		{"func", wordT_word},
 		{" ", wordT_division},
@@ -45,11 +45,11 @@ func TestLastIsIdentifier(t *testing.T) {
 		{"Ty", wordT_word},
 		{" ", wordT_division},
 		{")", wordT_division},
-		{"(", wordT_division},
+		{"", wordT_line},
 	}
 	got, _ := GetLastIsIdentifier(l, "(")
 	if got {
-		t.Error("不是(结束的")
+		t.Error("期望 false：参数列表已闭合，不应判定为仍以 ( 结束")
 	}
 	l = []*word{
 		{"func", wordT_word},
