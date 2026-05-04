@@ -12,5 +12,3 @@ require (
 )
 
 require gorm.io/driver/mysql v1.3.4 // indirect
-
-replace github.com/ctfang/command => ../../ctfang/command
